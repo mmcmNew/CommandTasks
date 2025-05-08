@@ -7,7 +7,7 @@ export interface UserRoleObject {
 }
 
 export interface User {
-  id: string;
+  id:string;
   email: string;
   passwordHash: string; // Store hashed password
   name: string;
@@ -19,6 +19,7 @@ export type TaskStatus =
   | "Ожидает оценку" 
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
+  | "Доработано" // New: Task has been reworked after a revision request
   | "В работе"
   | "Ожидает проверку" // New: Executor has marked task as done
   | "Ожидает оплату"   // New: Customer has accepted the work, pending payment confirmation
@@ -84,4 +85,5 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+
 

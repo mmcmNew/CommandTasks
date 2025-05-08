@@ -6,13 +6,15 @@ export const TASK_STATUSES: TaskStatus[] = [
   "Новая",
   "Ожидает оценку",
   "В работе",
-  "Ожидает проверку", // New: Executor has marked task as done
-  "Ожидает оплату",   // New: Customer has accepted the work, pending payment confirmation
-  "Завершено",        // Final state, implies payment confirmed in the new flow
+  "Ожидает проверку", 
+  "Ожидает оплату",   
+  "Доработано", // New: Task has been reworked
+  "Завершено",        
   "Требует доработки от заказчика", 
   "Требует доработки от исполнителя",
 ];
 
 export const AUTH_COOKIE_NAME = "taskflow_session";
+
 
 

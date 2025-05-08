@@ -114,7 +114,7 @@ export async function getTaskDetails(taskId: string) {
 export async function changeTaskStatusAndLog(
   taskId: string,
   newStatus: TaskStatus, 
-  currentUserId: string // Changed from actingUserId to currentUserId for consistency
+  currentUserId: string 
 ) {
   if (!currentUserId) {
     return { error: 'Unauthorized. User ID is missing.' };
@@ -331,7 +331,7 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
   }
 }
 
-// New actions for task completion flow
+// Task completion flow actions
 
 export async function markTaskAsCompletedByExecutorAction(taskId: string, currentUserId: string) {
   if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
@@ -443,3 +443,99 @@ export async function confirmPaymentAndFinalizeTaskAction(taskId: string, curren
     return { error: 'Could not confirm payment or finalize task.' };
   }
 }
+
+// Revision workflow actions
+export async function markTaskAsReworkedAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Пользователь';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'Доработано';
+
+  if (oldStatus !== 'Требует доработки от заказчика' && oldStatus !== 'Требует доработки от исполнителя') {
+    return { error: `Task cannot be marked as reworked from status: ${oldStatus}.` };
+  }
+
+  if (oldStatus === 'Требует доработки от заказчика' && task.customerId !== currentUserId) {
+    return { error: 'Only the customer can mark this revision as done.' };
+  }
+  if (oldStatus === 'Требует доработки от исполнителя' && task.executorId !== currentUserId) {
+    return { error: 'Only the executor can mark this revision as done.' };
+  }
+  
+  task.status = newStatus;
+
+  const commentText = `${userName} отметил${user?.roleName === 'заказчик' ? 'а' : ''} доработку. Статус задачи изменен с "${oldStatus}" на "${newStatus}".`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: `Task marked as reworked. Status: ${newStatus}.` };
+  } catch (error) {
+    console.error('Error marking task as reworked:', error);
+    return { error: 'Could not mark task as reworked.' };
+  }
+}
+
+export async function acceptReworkAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Пользователь';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'В работе';
+
+  if (oldStatus !== 'Доработано') {
+    return { error: `Rework cannot be accepted from status: ${oldStatus}.` };
+  }
+
+  // Ensure the current user is the one who *requested* the revision.
+  // This is inferred: if current user is customer, executor must have reworked.
+  // If current user is executor, customer must have reworked.
+  if (task.customerId !== currentUserId && task.executorId !== currentUserId) {
+     return { error: 'Only the customer or executor involved in the revision can accept it.'};
+  }
+  // Add more specific checks if needed, e.g. by storing who initiated the "Требует доработки" status.
+  // For now, if it's "Доработано", and I'm customer or executor, I can accept it back to "В работе".
+  
+  task.status = newStatus;
+
+  const commentText = `${userName} принял${user?.roleName === 'заказчик' ? 'а' : ''} доработку. Статус задачи изменен с "${oldStatus}" на "${newStatus}".`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: `Rework accepted. Task is now "${newStatus}".` };
+  } catch (error) {
+    console.error('Error accepting rework:', error);
+    return { error: 'Could not accept rework.' };
+  }
+}
+
