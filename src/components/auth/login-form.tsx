@@ -1,5 +1,6 @@
 'use client';
 
+import { useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { LoginFormData } from '@/lib/schema';
@@ -7,7 +8,6 @@ import { LoginSchema } from '@/lib/schema';
 import { loginUser } from '@/lib/actions/auth.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-// import { Label } from '@/components/ui/label'; // No longer directly used due to FormField
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -21,6 +21,7 @@ import type { CurrentUser } from '@/types';
 export default function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormData>({
@@ -32,19 +33,30 @@ export default function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormData) {
+    console.log("onSubmit: Form submission started");
     setIsLoading(true);
     try {
+      console.log("onSubmit: Calling loginUser");
       const result = await loginUser(data);
+      console.log("onSubmit: loginUser result:", result);
+
       if (result.success && result.user) {
+        console.log("onSubmit: Login successful. Storing user data and redirecting...");
         toast({
           title: 'Login Successful',
-          description: 'Redirecting to dashboard...',
         });
-        // Store non-sensitive user info in localStorage
+        
+        // Store user details (including roleId and roleName) in localStorage
         localStorage.setItem('currentUser', JSON.stringify(result.user));
-        router.push('/dashboard'); 
+        
+        startTransition(() => {
+          // Session is already created by the loginUser server action.
+          // No need to call createSession here.
+          router.push('/dashboard');
+          router.refresh(); // Helps ensure the layout and session state are updated
+        });
+
       } else {
-        // Handle cases where login failed or user data wasn't returned (though it should be on success)
         toast({
           title: 'Login Failed',
           description: result.error || 'An unknown error occurred.',
@@ -52,7 +64,7 @@ export default function LoginForm() {
         });
       }
     } catch (error) {
-      // Catch errors from the action call itself or network issues
+        console.error("onSubmit: Error during login:", error);
       toast({
         title: 'Login Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -102,8 +114,8 @@ export default function LoginForm() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+            <Button type="submit" className="w-full" disabled={isLoading || isPending}>
+              {isLoading || isPending ? 'Logging in...' : 'Login'}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Don&apos;t have an account?{' '}

@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { USER_ROLES, TASK_STATUSES } from './constants';
+import { TASK_STATUSES } from './constants'; // USER_ROLES removed
 
 export const RegisterSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(USER_ROLES, { message: "Invalid role selected." }),
+  roleId: z.string().min(1, { message: "Role is required." }), // Changed from role to roleId
 });
 
 export type RegisterFormData = z.infer<typeof RegisterSchema>;

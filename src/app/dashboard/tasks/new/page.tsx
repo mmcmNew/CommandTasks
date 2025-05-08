@@ -1,9 +1,10 @@
 import TaskForm from '@/components/tasks/task-form';
-import { getUsers } from '@/lib/data';
+import { getUsers, getUserRoles } from '@/lib/data';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardEdit } from 'lucide-react';
+import type { UserRoleObject, UserRoleName } from '@/types';
 
 export default async function NewTaskPage() {
   const session = await getSession();
@@ -12,9 +13,22 @@ export default async function NewTaskPage() {
   }
 
   const users = await getUsers();
-  // Filter for potential customers and executors. For simplicity, all users can be selected for now.
-  const customers = users.filter(user => user.role === 'заказчик' || user.role === 'исполнитель'); // Or specific logic
-  const executors = users.filter(user => user.role === 'исполнитель');
+  const userRoles = await getUserRoles();
+  
+  const executorRoleName: UserRoleName = 'исполнитель';
+  const executorRole = userRoles.find(role => role.name === executorRoleName);
+  
+  const potentialExecutors = executorRole 
+    ? users.filter(user => user.roleId === executorRole.id)
+    : []; // If "исполнитель" role not found, no executors
+
+  // For customers, we can assume any user can be a customer for now,
+  // or apply specific logic if needed, similar to executors.
+  // const customerRoleName: UserRoleName = 'заказчик';
+  // const customerRole = userRoles.find(role => role.name === customerRoleName);
+  // const potentialCustomers = customerRole ? users.filter(user => user.roleId === customerRole.id) : users;
+  const potentialCustomers = users; // Simpler: all users can be customers
+
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -27,7 +41,9 @@ export default async function NewTaskPage() {
         </CardHeader>
         <CardContent>
           <TaskForm 
-            users={users} 
+            users={users} // Pass all users for selection lists
+            potentialCustomers={potentialCustomers}
+            potentialExecutors={potentialExecutors}
             currentUserId={session.userId} 
           />
         </CardContent>

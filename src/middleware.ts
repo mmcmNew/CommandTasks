@@ -5,12 +5,17 @@ import { getSession, updateSession } from '@/lib/session';
 const protectedRoutes = ['/dashboard']; // Add more routes as needed
 const authRoutes = ['/login', '/register'];
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {  
+  console.log('Running middleware');
   const session = await getSession();
+  console.log('Session:', session);
+
   const { pathname } = request.nextUrl;
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isAuthRoute = authRoutes.includes(pathname);
+  console.log('Is protected route:', isProtectedRoute);
+  console.log('Is auth route:', isAuthRoute);
 
   if (isAuthRoute) {
     if (session) {
@@ -24,6 +29,7 @@ export async function middleware(request: NextRequest) {
     if (!session) {
       // If user is not logged in and tries to access a protected route, redirect to login
       return NextResponse.redirect(new URL('/login', request.url));
+      console.log('Redirecting to login from protected route');
     }
     // If session exists, update it to extend its lifetime (optional, good for active users)
     // await updateSession(); 
@@ -45,3 +51,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|uploads).*)',
   ],
 };
+

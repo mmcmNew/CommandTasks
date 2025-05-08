@@ -1,11 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { User, Task, Comment } from '@/types';
+import type { User, Task, Comment, UserRoleObject, UserRoleName } from '@/types';
 
 interface AppData {
   users: User[];
   tasks: Task[];
   comments: Comment[];
+  userRoles: UserRoleObject[];
 }
 
 const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data', 'data.json');
@@ -17,7 +18,7 @@ export async function readData(): Promise<AppData> {
   } catch (error) {
     console.error('Failed to read data file:', error);
     // If file doesn't exist or is corrupted, return a default structure
-    return { users: [], tasks: [], comments: [] };
+    return { users: [], tasks: [], comments: [], userRoles: [] };
   }
 }
 
@@ -31,20 +32,37 @@ export async function writeData(data: AppData): Promise<void> {
   }
 }
 
+// User Role specific functions
+export async function getUserRoles(): Promise<UserRoleObject[]> {
+  const data = await readData();
+  return data.userRoles || []; // Ensure userRoles is always an array
+}
+
+
 // User specific functions
 export async function getUsers(): Promise<User[]> {
   const data = await readData();
   return data.users;
 }
 
-export async function getUserByEmail(email: string): Promise<User | undefined> {
-  const users = await getUsers();
-  return users.find(user => user.email === email);
+export async function getUserByEmail(email: string): Promise<(User & { roleName: UserRoleName }) | undefined> {
+  const data = await readData();
+  const user = data.users.find(u => u.email === email);
+  if (user) {
+    const role = data.userRoles.find(r => r.id === user.roleId);
+    return { ...user, roleName: role ? role.name : 'Unknown Role' as UserRoleName };
+  }
+  return undefined;
 }
 
-export async function getUserById(id: string): Promise<User | undefined> {
-  const users = await getUsers();
-  return users.find(user => user.id === id);
+export async function getUserById(id: string): Promise<(User & { roleName: UserRoleName }) | undefined> {
+  const data = await readData();
+  const user = data.users.find(u => u.id === id);
+  if (user) {
+    const role = data.userRoles.find(r => r.id === user.roleId);
+    return { ...user, roleName: role ? role.name : 'Unknown Role' as UserRoleName };
+  }
+  return undefined;
 }
 
 export async function addUser(user: User): Promise<void> {

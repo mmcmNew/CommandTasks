@@ -1,6 +1,6 @@
-import type { UserRole, TaskStatus } from '@/types';
+import type { TaskStatus } from '@/types';
 
-export const USER_ROLES: UserRole[] = ["заказчик", "исполнитель"];
+// USER_ROLES is removed as roles are now managed in data.json and fetched via getUserRoles()
 
 export const TASK_STATUSES: TaskStatus[] = [
   "Новая",

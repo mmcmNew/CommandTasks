@@ -1,12 +1,18 @@
 
-export type UserRole = "заказчик" | "исполнитель";
+
+export type UserRoleName = "заказчик" | "исполнитель";
+
+export interface UserRoleObject {
+  id: string;
+  name: UserRoleName;
+}
 
 export interface User {
   id: string;
   email: string;
   passwordHash: string; // Store hashed password
   name: string;
-  role: UserRole;
+  roleId: string; // Changed from role: UserRole
 }
 
 export type TaskStatus = 
@@ -55,7 +61,7 @@ export interface Comment {
 
 export interface SessionPayload { // For secure HTTP-only cookie session
   userId: string;
-  role: UserRole;
+  roleId: string; // Changed from role: UserRole
   expiresAt: Date;
 }
 
@@ -63,5 +69,6 @@ export interface CurrentUser { // For localStorage, non-sensitive user details
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  roleId: string;
+  roleName: UserRoleName;
 }

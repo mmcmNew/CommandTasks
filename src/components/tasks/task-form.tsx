@@ -23,11 +23,13 @@ import { useState }  from 'react';
 
 interface TaskFormProps {
   task?: Task; // For editing
-  users: User[];
+  users: User[]; // All users, for general reference or if filtering is done here
+  potentialCustomers: User[]; // Pre-filtered customers
+  potentialExecutors: User[]; // Pre-filtered executors
   currentUserId: string;
 }
 
-export default function TaskForm({ task, users, currentUserId }: TaskFormProps) {
+export default function TaskForm({ task, users, potentialCustomers, potentialExecutors, currentUserId }: TaskFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -40,15 +42,12 @@ export default function TaskForm({ task, users, currentUserId }: TaskFormProps) 
       status: task?.status || TASK_STATUSES[0],
       dueDate: task?.dueDate ? new Date(task.dueDate) : null,
       cost: task?.cost || null,
-      customerId: task?.customerId || currentUserId, // Default customer to current user or specific logic
+      customerId: task?.customerId || currentUserId, 
       executorId: task?.executorId || null,
       attachments: [],
     },
   });
   
-  const potentialCustomers = users; // Allow any user to be customer for now
-  const potentialExecutors = users.filter(u => u.role === 'исполнитель');
-
 
   async function onSubmit(data: TaskFormData) {
     setIsLoading(true);
@@ -65,11 +64,9 @@ export default function TaskForm({ task, users, currentUserId }: TaskFormProps) 
       }
     });
 
-    // Add authorId implicitly
     formData.append('authorId', currentUserId);
 
     try {
-      // For now, only create task is implemented. Edit would need a different action.
       const result = await createTask(formData); 
       if (result?.error) {
         toast({
@@ -82,7 +79,7 @@ export default function TaskForm({ task, users, currentUserId }: TaskFormProps) 
           title: task ? 'Task Updated' : 'Task Created',
           description: `Task "${data.title}" has been successfully ${task ? 'updated' : 'created'}.`,
         });
-        // Redirect is handled by server action
+        // Redirect is handled by server action in createTask
       }
     } catch (error) {
       toast({

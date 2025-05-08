@@ -1,16 +1,15 @@
 'use server';
 import { z } from 'zod';
 import { RegisterSchema, LoginSchema, type RegisterFormData, type LoginFormData } from '@/lib/schema';
-import { getUserByEmail, addUser } from '@/lib/data';
+import { getUserByEmail, addUser, getUserRoles } from '@/lib/data'; // Added getUserRoles
 import { createSession, deleteSession } from '@/lib/session';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import type { UserRole, CurrentUser } from '@/types'; // Import CurrentUser
+import type { CurrentUser } from '@/types';
 
-// Define a clear return type for loginUser
 interface LoginUserResult {
   success?: string;
-  user?: CurrentUser; // User details for client-side storage
+  user?: CurrentUser; 
   error?: string;
   details?: z.ZodError<LoginFormData>['formErrors']['fieldErrors'];
 }
@@ -22,7 +21,7 @@ export async function registerUser(formData: RegisterFormData) {
     return { error: 'Invalid fields.', details: validatedFields.error.flatten().fieldErrors };
   }
 
-  const { name, email, password, role } = validatedFields.data;
+  const { name, email, password, roleId } = validatedFields.data;
 
   const existingUser = await getUserByEmail(email);
   if (existingUser) {
@@ -35,10 +34,11 @@ export async function registerUser(formData: RegisterFormData) {
     name,
     email,
     passwordHash,
-    role,
+    roleId, // Save roleId
   };
 
   try {
+    // @ts-ignore // User type expects roleId which is provided
     await addUser(newUser);
     return { success: 'Registration successful! Please log in.' };
   } catch (error) {
@@ -48,38 +48,52 @@ export async function registerUser(formData: RegisterFormData) {
 }
 
 export async function loginUser(formData: LoginFormData): Promise<LoginUserResult> {
+  console.log('loginUser: Starting loginUser function');
   const validatedFields = LoginSchema.safeParse(formData);
 
   if (!validatedFields.success) {
+    console.log('loginUser: Validation failed');
     return { error: 'Invalid fields.', details: validatedFields.error.flatten().fieldErrors };
   }
+  console.log('loginUser: Validation successful');
 
   const { email, password } = validatedFields.data;
 
-  const user = await getUserByEmail(email);
+  const user = await getUserByEmail(email); // getUserByEmail now returns roleName as well
   if (!user) {
+    console.log('loginUser: User not found');
     return { error: 'Invalid email or password.' };
   }
+  console.log('loginUser: User found, id:', user.id, 'roleId:', user.roleId, 'roleName:', user.roleName);
 
   const passwordMatch = await bcrypt.compare(password, user.passwordHash);
   if (!passwordMatch) {
+    console.log('loginUser: Password does not match');
     return { error: 'Invalid email or password.' };
   }
+  console.log('loginUser: Password matches');
 
   try {
-    await createSession(user.id, user.role); // Sets HTTP-only cookie
-    // Return user details for client-side
+    console.log('loginUser: Attempting to create session with roleId:', user.roleId);
+    await createSession(user.id, user.roleId); // Pass roleId to createSession
+    console.log('loginUser: Session creation attempt finished in auth.actions');
+    
     return { 
       success: 'Login successful!', 
-      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        roleId: user.roleId, 
+        roleName: user.roleName // roleName is from the enhanced getUserByEmail
+      } 
     };
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('loginUser: Error during createSession call or subsequent logic:', error);
     return { error: 'Could not log in.' };
   }
 }
 
 export async function logoutUser() {
-  await deleteSession(); // Clears HTTP-only cookie
-  // Client-side should handle redirect after logout
+  await deleteSession();
 }

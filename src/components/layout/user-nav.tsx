@@ -22,20 +22,17 @@ import type { CurrentUser } from '@/types';
 export function UserNav() {
   const { toast } = useToast();
   const router = useRouter();
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    // Try to load user info from localStorage for quick UI update
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       try {
         const userData: CurrentUser = JSON.parse(storedUser);
-        setUserName(userData.name);
-        setUserEmail(userData.email);
+        setCurrentUser(userData);
       } catch (e) {
         console.error("Failed to parse user data from localStorage", e);
-        localStorage.removeItem('currentUser'); // Clear corrupted data
+        localStorage.removeItem('currentUser'); 
       }
     }
   }, []);
@@ -43,16 +40,21 @@ export function UserNav() {
 
   const handleLogout = async () => {
     try {
-      await logoutUser(); // Server action to clear session cookie
-      localStorage.removeItem('currentUser'); // Clear client-side stored user info
-      setUserName(null); // Clear state
-      setUserEmail(null); // Clear state
+      await logoutUser(); 
+      localStorage.removeItem('currentUser'); 
+      setCurrentUser(null);
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/login'); // Redirect to login page after logout
+      router.push('/login'); 
+      router.refresh(); // Ensure layout updates
     } catch (error) {
       toast({ title: 'Logout Failed', description: 'Could not log out. Please try again.', variant: 'destructive' });
     }
   };
+
+  const userName = currentUser?.name;
+  const userEmail = currentUser?.email;
+  const userRoleName = currentUser?.roleName;
+
 
   return (
     <DropdownMenu>
@@ -75,15 +77,20 @@ export function UserNav() {
             <p className="text-xs leading-none text-muted-foreground">
               {userEmail || 'user@example.com'}
             </p>
+            {userRoleName && (
+                <p className="text-xs leading-none text-muted-foreground capitalize">
+                    Role: {userRoleName}
+                </p>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled> {/* Placeholder, implement if needed */}
+          <DropdownMenuItem disabled> 
             <UserIcon className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>
-          <DropdownMenuItem disabled> {/* Placeholder, implement if needed */}
+          <DropdownMenuItem disabled> 
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </DropdownMenuItem>

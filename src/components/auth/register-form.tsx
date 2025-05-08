@@ -7,9 +7,7 @@ import { RegisterSchema } from '@/lib/schema';
 import { registerUser } from '@/lib/actions/auth.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { USER_ROLES } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -17,8 +15,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
+import type { UserRoleObject } from '@/types';
 
-export default function RegisterForm() {
+interface RegisterFormProps {
+  userRoles: UserRoleObject[]; // Prop to receive roles
+}
+
+export default function RegisterForm({ userRoles }: RegisterFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +32,7 @@ export default function RegisterForm() {
       name: '',
       email: '',
       password: '',
-      role: USER_ROLES[0], // Default to first role
+      roleId: userRoles.length > 0 ? userRoles[0].id : '', // Default to first role's ID
     },
   });
 
@@ -113,7 +116,7 @@ export default function RegisterForm() {
             />
             <FormField
               control={form.control}
-              name="role"
+              name="roleId" // Changed to roleId
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
@@ -124,9 +127,9 @@ export default function RegisterForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {USER_ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {userRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                         </SelectItem>
                       ))}
                     </SelectContent>
