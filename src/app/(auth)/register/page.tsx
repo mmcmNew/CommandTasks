@@ -1,7 +1,8 @@
 'use client';
 
 import RegisterForm from '@/components/auth/register-form';
-import { getUserRoles } from '@/lib/data'; 
+// import { getUserRoles } from '@/lib/data'; // Removed direct import
+import { fetchUserRolesAction } from '@/lib/actions/auth.actions'; // Added server action import
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -23,8 +24,14 @@ export default function RegisterPage() {
   useEffect(() => {
     async function fetchRoles() {
       try {
-        const roles = await getUserRoles();
-        setUserRoles(roles);
+        // const roles = await getUserRoles(); // Old direct call
+        const result = await fetchUserRolesAction(); // New server action call
+        if (result.success && result.roles) {
+          setUserRoles(result.roles);
+        } else {
+          console.error("Failed to fetch user roles:", result.error);
+          // Handle error, maybe show a toast
+        }
       } catch (error) {
         console.error("Failed to fetch user roles:", error);
         // Handle error, maybe show a toast

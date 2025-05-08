@@ -1,7 +1,8 @@
 'use client';
 
 import TaskForm from '@/components/tasks/task-form';
-import { getUsers, getUserRoles } from '@/lib/data';
+// import { getUsers, getUserRoles } from '@/lib/data'; // Removed direct imports
+import { fetchNewTaskPageData } from '@/lib/actions/task.actions'; // Added server action import
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardEdit, Loader2 } from 'lucide-react';
 import type { UserRoleObject, UserRoleName, User } from '@/types';
@@ -21,22 +22,32 @@ export default function NewTaskPage() {
       if (!currentUser) return; // Ensure currentUser is available
       try {
         setDataLoading(true);
-        const [fetchedUsers, fetchedUserRoles] = await Promise.all([
-          getUsers(),
-          getUserRoles()
-        ]);
-        setUsers(fetchedUsers);
-        setUserRoles(fetchedUserRoles);
+        // const [fetchedUsers, fetchedUserRoles] = await Promise.all([
+        //   getUsers(), // Old way
+        //   getUserRoles() // Old way
+        // ]);
+        
+        const result = await fetchNewTaskPageData(); // New server action call
 
-        const executorRoleName: UserRoleName = 'исполнитель';
-        const executorRole = fetchedUserRoles.find(role => role.name === executorRoleName);
-        
-        setPotentialExecutors(executorRole 
-          ? fetchedUsers.filter(user => user.roleId === executorRole.id)
-          : []);
-        
-        // Simpler: all users can be customers
-        setPotentialCustomers(fetchedUsers);
+        if (result.success && result.users && result.userRoles) {
+          const fetchedUsers = result.users;
+          const fetchedUserRoles = result.userRoles;
+
+          setUsers(fetchedUsers);
+          setUserRoles(fetchedUserRoles);
+
+          const executorRoleName: UserRoleName = 'исполнитель';
+          const executorRole = fetchedUserRoles.find(role => role.name === executorRoleName);
+          
+          setPotentialExecutors(executorRole 
+            ? fetchedUsers.filter(user => user.roleId === executorRole.id)
+            : []);
+          
+          setPotentialCustomers(fetchedUsers);
+        } else {
+          console.error("Failed to load data for new task page:", result.error);
+          // Handle error (e.g., show toast)
+        }
 
       } catch (error) {
         console.error("Failed to load data for new task page:", error);
@@ -60,8 +71,6 @@ export default function NewTaskPage() {
   }
   
   if (!currentUser) {
-      // This case should ideally be handled by the DashboardLayout redirecting.
-      // Adding it here for robustness.
       return (
         <div className="max-w-3xl mx-auto flex items-center justify-center py-10">
           <p>Please log in to create a task.</p>
@@ -83,7 +92,6 @@ export default function NewTaskPage() {
             users={users} 
             potentialCustomers={potentialCustomers}
             potentialExecutors={potentialExecutors}
-            // currentUserId is no longer passed as a prop; TaskForm uses AuthContext
           />
         </CardContent>
       </Card>

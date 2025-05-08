@@ -1,7 +1,16 @@
 'use server';
 import type { TaskFormData } from '@/lib/schema';
 import { TaskSchema } from '@/lib/schema';
-import { addTask, getTaskById, getUsers, updateTask, saveFile, getTasks as getAllTasks } from '@/lib/data';
+import { 
+  addTask, 
+  getTaskById, 
+  updateTask, 
+  saveFile, 
+  getTasks as getAllTasks,
+  getCommentsByTaskId as fetchCommentsFromDb,
+  getUserRoles as fetchUserRolesFromDb,
+  getUsers as fetchAllUsersFromDb 
+} from '@/lib/data';
 // import { getSession } from '@/lib/session'; // No longer using server session for authorId
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
@@ -82,7 +91,7 @@ export async function getTaskDetails(taskId: string) {
   const task = await getTaskById(taskId);
   if (!task) return null;
 
-  const users = await getUsers();
+  const users = await fetchAllUsersFromDb(); // Use aliased fetchAllUsersFromDb
   const author = users.find(u => u.id === task.authorId);
   const customer = users.find(u => u.id === task.customerId);
   const executor = task.executorId ? users.find(u => u.id === task.executorId) : null;
@@ -127,5 +136,41 @@ export async function updateTaskStatus(taskId: string, status: Task['status'], c
   } catch (error) {
     console.error('Update status error:', error);
     return { error: 'Could not update status' };
+  }
+}
+
+export async function fetchTaskPageData(taskId: string) {
+  try {
+    const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); 
+    
+    if (!taskDetailsWithEnrichedUsers) {
+      return { success: false, error: "Task not found." };
+    }
+
+    const comments = await fetchCommentsFromDb(taskId);
+    const allUsersList = await fetchAllUsersFromDb();
+
+    return { 
+      success: true, 
+      taskDetails: taskDetailsWithEnrichedUsers,
+      comments, 
+      users: allUsersList 
+    };
+  } catch (error) {
+    console.error(`Failed to fetch page data for task ${taskId}:`, error);
+    return { success: false, error: "Failed to load task page data." };
+  }
+}
+
+export async function fetchNewTaskPageData() {
+  try {
+    const [users, userRoles] = await Promise.all([
+      fetchAllUsersFromDb(),
+      fetchUserRolesFromDb()
+    ]);
+    return { success: true, users, userRoles };
+  } catch (error) {
+    console.error("Failed to fetch new task page data:", error);
+    return { success: false, error: "Failed to load data for new task form." };
   }
 }

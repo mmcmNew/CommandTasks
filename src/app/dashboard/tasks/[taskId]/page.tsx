@@ -1,7 +1,8 @@
 'use client';
 
-import { getTaskDetails } from '@/lib/actions/task.actions';
-import { getCommentsByTaskId, getUsers } from '@/lib/data';
+// import { getTaskDetails } from '@/lib/actions/task.actions'; // getTaskDetails is now part of fetchTaskPageData
+// import { getCommentsByTaskId, getUsers } from '@/lib/data'; // Removed direct imports
+import { fetchTaskPageData } from '@/lib/actions/task.actions'; // Added server action import
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
 import { useParams, notFound, useRouter } from 'next/navigation';
@@ -47,25 +48,31 @@ export default function TaskDetailPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        const [taskData, commentsData, usersData] = await Promise.all([
-          getTaskDetails(taskId),
-          getCommentsByTaskId(taskId),
-          getUsers()
-        ]);
+        // const [taskData, commentsData, usersData] = await Promise.all([
+        //   getTaskDetails(taskId), // Old way
+        //   getCommentsByTaskId(taskId), // Old way
+        //   getUsers() // Old way
+        // ]);
 
-        if (!taskData) {
-          notFound(); // Or handle as an error state
+        const result = await fetchTaskPageData(taskId); // New consolidated server action call
+
+        if (result.success && result.taskDetails && result.comments && result.users) {
+          if (!result.taskDetails) { // taskDetails within result can be null if task not found by action
+            notFound(); 
+            return;
+          }
+          setTaskDetails(result.taskDetails as EnrichedTaskDetails); 
+          setComments(result.comments);
+          setUsers(result.users);
+        } else {
+          console.error("Failed to fetch task page data:", result.error);
+          notFound(); 
           return;
         }
-        
-        setTaskDetails(taskData as EnrichedTaskDetails); // Cast if confident about structure
-        setComments(commentsData);
-        setUsers(usersData);
 
       } catch (error) {
         console.error("Failed to fetch task details:", error);
-        // Optionally set an error state to display to the user
-        notFound(); // Or a more specific error display
+        notFound(); 
       } finally {
         setLoading(false);
       }
@@ -96,13 +103,10 @@ export default function TaskDetailPage() {
   }
 
   if (!taskDetails) {
-    // This case implies notFound() was called or data fetch failed significantly
-    // Handled by notFound() redirect or can show a message here if preferred
     return <div className="text-center py-10">Task not found or could not be loaded.</div>;
   }
   
   if (!currentUser) {
-    // Should be caught by layout or early useEffect, but as safety.
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
@@ -193,7 +197,6 @@ export default function TaskDetailPage() {
             </Button> */}
         </CardFooter>
       </Card>
-      {/* CommentSection will use AuthContext for currentUserId */}
       <CommentSection taskId={taskDetails.id} comments={comments} users={users} />
     </div>
   );

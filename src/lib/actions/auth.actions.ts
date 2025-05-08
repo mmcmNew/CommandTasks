@@ -1,7 +1,7 @@
 'use server';
 import { z } from 'zod';
 import { RegisterSchema, LoginSchema, type RegisterFormData, type LoginFormData } from '@/lib/schema';
-import { getUserByEmail, addUser } from '@/lib/data';
+import { getUserByEmail, addUser, getUserRoles as fetchRolesFromDb } from '@/lib/data'; // Aliased getUserRoles
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import type { CurrentUser } from '@/types';
@@ -90,4 +90,14 @@ export async function logoutUser() {
   // For localStorage based auth, primary logout (clearing storage) happens client-side.
   console.log('logoutUser: Server-side logout signal received.');
   // No cookie deletion needed here as we're moving away from cookies.
+}
+
+export async function fetchUserRolesAction() {
+  try {
+    const roles = await fetchRolesFromDb();
+    return { success: true, roles };
+  } catch (error) {
+    console.error("Failed to fetch user roles via action:", error);
+    return { success: false, error: "Failed to load roles." };
+  }
 }
