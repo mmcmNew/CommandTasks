@@ -36,10 +36,12 @@ export default function LoginForm() {
       if (result.success) {
         toast({
           title: 'Login Successful',
-          description: 'Redirecting to your dashboard...',
+          description: 'You will be redirected shortly.',
         });
-        router.push('/dashboard');
-        router.refresh(); // Important to update server-side state like cookies
+        // Instead of router.push, we rely on router.refresh() which will
+        // cause the middleware to redirect if the user is now logged in
+        // and on an auth page (like /login).
+        router.refresh(); 
       } else {
         toast({
           title: 'Login Failed',

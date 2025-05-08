@@ -1,5 +1,13 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "name": "Михаил",
+      "email": "mai@mail.ru",
+      "passwordHash": "$2a$10$UPE2/MH3nndLcvp4deKaxOiII7hIGLmbjPcLqiqvucahPaHMlPlX6",
+      "role": "заказчик"
+    }
+  ],
   "tasks": [],
   "comments": []
 }
