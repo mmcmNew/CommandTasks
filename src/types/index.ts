@@ -1,5 +1,4 @@
 
-
 export type UserRoleName = "заказчик" | "исполнитель";
 
 export interface UserRoleObject {
@@ -12,7 +11,7 @@ export interface User {
   email: string;
   passwordHash: string; // Store hashed password
   name: string;
-  roleId: string; // Changed from role: UserRole
+  roleId: string; 
 }
 
 export type TaskStatus = 
@@ -45,6 +44,7 @@ export interface Task {
 
 export interface CommentAttachment extends TaskAttachment {}
 
+// Added newStatusToSet to allow changing task status when submitting a comment
 export interface Comment {
   id: string;
   taskId: string;
@@ -52,11 +52,12 @@ export interface Comment {
   text: string;
   attachments: CommentAttachment[];
   timestamp: string; // ISO date string
+  // newStatusToSet?: TaskStatus; // This logic will be handled by the action based on form input
 }
 
 export interface SessionPayload { // For secure HTTP-only cookie session
   userId: string;
-  roleId: string; // Changed from role: UserRole
+  roleId: string; 
   expiresAt: Date;
 }
 
@@ -68,3 +69,16 @@ export interface CurrentUser { // For localStorage, non-sensitive user details
   roleName: UserRoleName;
 }
 
+export interface TaskProposal {
+  id: string;
+  taskId: string;
+  executorId: string;
+  proposedCost: number | null;
+  proposedDueDate: string | null; // ISO date string
+  timestamp: string; // ISO date string
+}
+
+export interface EnrichedTaskProposal extends TaskProposal {
+  executorName: string;
+  executorEmail: string; // For avatar or contact
+}

@@ -2,10 +2,10 @@
 'use server';
 import type { CommentFormData } from '@/lib/schema';
 import { CommentSchema } from '@/lib/schema';
-import { addComment, saveFile } from '@/lib/data';
+import { addComment, saveFile, getTaskById, updateTask, getUserById } from '@/lib/data'; // Added getTaskById, updateTask
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
-import type { Comment, CommentAttachment } from '@/types';
+import type { Comment, CommentAttachment, TaskStatus } from '@/types'; // Added TaskStatus
 
 export async function addCommentToTask(formData: FormData, currentUserId: string) { 
   if (!currentUserId) {
@@ -14,6 +14,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
 
   const taskId = formData.get('taskId') as string;
   const authorIdFromForm = formData.get('authorId') as string; 
+  const newStatusToSet = formData.get('newStatusToSet') as TaskStatus | undefined | "none";
   
   if (authorIdFromForm !== currentUserId) {
     return { error: 'User mismatch. Action forbidden.' };
@@ -22,7 +23,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   const rawFormData = {
     text: formData.get('text') as string,
     attachments: formData.getAll('attachments') as File[],
-    // action field removed
+    newStatusToSet: newStatusToSet === "none" ? undefined : newStatusToSet,
   };
 
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
@@ -30,10 +31,11 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   const validatedFields = CommentSchema.safeParse(rawFormData);
 
   if (!validatedFields.success) {
-    return { error: 'Invalid fields.', details: validatedFields.error.flatten().fieldErrors };
+    console.log("Comment validation errors:", validatedFields.error.flatten().fieldErrors);
+    return { error: 'Invalid comment fields.', details: validatedFields.error.flatten().fieldErrors };
   }
 
-  const { text, attachments } = validatedFields.data; // action removed
+  const { text, attachments, newStatusToSet: validatedStatus } = validatedFields.data;
   const newCommentId = uuidv4();
   const uploadedAttachments: CommentAttachment[] = [];
 
@@ -58,17 +60,44 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     text,
     attachments: uploadedAttachments,
     timestamp: new Date().toISOString(),
-    // action field removed
   };
 
   try {
     await addComment(newComment);
-    // Removed task status update logic; this is now handled by a separate action.
+
+    let statusUpdateMessage = "";
+    if (validatedStatus && (validatedStatus === "Требует доработки от заказчика" || validatedStatus === "Требует доработки от исполнителя")) {
+      const task = await getTaskById(taskId);
+      const user = await getUserById(currentUserId);
+      const userName = user ? user.name : 'Система';
+      
+      if (task) {
+        const oldStatus = task.status;
+        if (oldStatus !== validatedStatus) {
+            task.status = validatedStatus;
+            await updateTask(task);
+            statusUpdateMessage = ` Статус задачи изменен с "${oldStatus}" на "${validatedStatus}" пользователем ${userName}.`;
+            
+            // Log a system comment for the status change
+            const statusChangeComment: Comment = {
+                id: uuidv4(),
+                taskId,
+                authorId: currentUserId, // Or a system ID if preferred
+                text: `Статус задачи изменен с "${oldStatus}" на "${validatedStatus}" пользователем ${userName} при добавлении комментария.`,
+                attachments: [],
+                timestamp: new Date().toISOString(),
+            };
+            await addComment(statusChangeComment);
+        }
+      } else {
+         return { error: 'Task not found for status update.' };
+      }
+    }
+
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: 'Comment added successfully.' }; // Updated success message
+    return { success: `Comment added successfully.${statusUpdateMessage}` };
   } catch (error) {
-    console.error('Error during comment addition:', error); // Updated error message
-    return { error: 'Could not add comment.' };
+    console.error('Error during comment addition or status update:', error);
+    return { error: 'Could not add comment or update status.' };
   }
 }
-

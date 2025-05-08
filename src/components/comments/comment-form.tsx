@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,21 +9,24 @@ import { addCommentToTask } from '@/lib/actions/comment.actions';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-// Select components removed as action dropdown is gone
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from 'react';
-import { Send, Loader2, Paperclip } from 'lucide-react';
-// CommentAction type removed
+import { Send, Loader2, Paperclip, Edit } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-
+import type { TaskStatus, UserRoleName } from '@/types';
 
 interface CommentFormProps {
   taskId: string;
+  taskStatus: TaskStatus;
+  taskCustomerId: string;
+  taskExecutorId: string | null;
 }
 
+const relevantStatusesForChange: TaskStatus[] = ["Требует доработки от заказчика", "Требует доработки от исполнителя"];
 
-export default function CommentForm({ taskId }: CommentFormProps) {
+export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskExecutorId }: CommentFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const { currentUser } = useAuth();
@@ -32,9 +36,13 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     defaultValues: {
       text: '',
       attachments: [],
-      // action field removed
+      newStatusToSet: "none" as any, // Default to "none"
     },
   });
+
+  const canChangeStatus = currentUser && 
+    (currentUser.id === taskCustomerId || currentUser.id === taskExecutorId) &&
+    taskStatus !== "Завершено" && taskStatus !== "Новая";
 
   async function onSubmit(data: CommentFormData) {
     if (!currentUser?.id) {
@@ -45,7 +53,9 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     setIsLoading(true);
     const formData = new FormData();
     formData.append('text', data.text);
-    // No action to append
+    if (data.newStatusToSet && data.newStatusToSet !== "none") {
+      formData.append('newStatusToSet', data.newStatusToSet);
+    }
     if (data.attachments && data.attachments.length > 0) {
       data.attachments.forEach(file => {
         if (file instanceof File) formData.append('attachments', file);
@@ -65,9 +75,9 @@ export default function CommentForm({ taskId }: CommentFormProps) {
       } else {
         toast({
           title: 'Comment Added',
-          description: 'Your comment has been successfully posted.',
+          description: result.success || 'Your comment has been successfully posted.',
         });
-        form.reset(); 
+        form.reset({ text: '', attachments: [], newStatusToSet: 'none' as any }); 
       }
     } catch (error) {
       toast({
@@ -97,28 +107,59 @@ export default function CommentForm({ taskId }: CommentFormProps) {
           )}
         />
 
-        {/* Grid for attachments, action dropdown removed */}
-        <FormField
-          control={form.control}
-          name="attachments"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-sm flex items-center">
-                <Paperclip className="mr-2 h-4 w-4" /> Attachments (Optional)
-              </FormLabel>
-              <FormControl>
-                <Input 
-                  type="file" 
-                  multiple 
-                  onChange={(e) => field.onChange(e.target.files ? Array.from(e.target.files) : [])} 
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="text-xs"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="attachments"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm flex items-center">
+                  <Paperclip className="mr-2 h-4 w-4" /> Attachments (Optional)
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="file" 
+                    multiple 
+                    onChange={(e) => field.onChange(e.target.files ? Array.from(e.target.files) : [])} 
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="text-xs"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          {canChangeStatus && (
+            <FormField
+              control={form.control}
+              name="newStatusToSet"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm flex items-center">
+                    <Edit className="mr-2 h-4 w-4" /> Change Status (Optional)
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || "none"}>
+                    <FormControl>
+                      <SelectTrigger className="shadow-sm">
+                        <SelectValue placeholder="Select status to set" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Do not change status</SelectItem>
+                      {relevantStatusesForChange.map(statusValue => (
+                        <SelectItem key={statusValue} value={statusValue} disabled={taskStatus === statusValue}>
+                          {statusValue}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           )}
-        />
+        </div>
         
         <Button type="submit" disabled={isLoading || !currentUser} className="w-full sm:w-auto shadow-md">
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -128,4 +169,3 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     </Form>
   );
 }
-

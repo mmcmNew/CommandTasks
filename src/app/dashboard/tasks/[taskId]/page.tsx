@@ -1,18 +1,21 @@
+
 'use client';
 
 import { fetchTaskPageData, changeTaskStatusAndLog } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
+import TaskProposalForm from '@/components/proposals/task-proposal-form';
+import TaskProposalList from '@/components/proposals/task-proposal-list';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, SendToBack, Reply } from 'lucide-react';
+import { CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, SendToBack, Reply, Edit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState, useTransition } from 'react';
-import type { Comment as CommentType, User as UserType, Task as TaskType, TaskStatus } from '@/types';
+import type { Comment as CommentType, User as UserType, Task as TaskType, TaskStatus, EnrichedTaskProposal, UserRoleObject, UserRoleName } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -33,10 +36,45 @@ export default function TaskDetailPage() {
 
   const [taskDetails, setTaskDetails] = useState<EnrichedTaskDetails | null>(null);
   const [comments, setComments] = useState<CommentType[]>([]);
-  const [users, setUsers] = useState<UserType[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]); // List of all users for comment author names
+  const [taskProposals, setTaskProposals] = useState<EnrichedTaskProposal[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRoleName | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStatusChanging, startStatusChangeTransition] = useTransition();
 
+  const fetchData = async () => {
+    if (!currentUser) return;
+    try {
+      setLoading(true);
+      const result = await fetchTaskPageData(taskId, currentUser.id); 
+
+      if (result.success && result.taskDetails && result.comments && result.users && result.taskProposals && result.userRoles) {
+        if (!result.taskDetails) { 
+          notFound(); 
+          return;
+        }
+        setTaskDetails(result.taskDetails as EnrichedTaskDetails); 
+        setComments(result.comments);
+        setUsers(result.users);
+        setTaskProposals(result.taskProposals);
+        setUserRoles(result.userRoles);
+        setCurrentUserRole(result.currentUserRoleName || null);
+
+      } else {
+        console.error("Failed to fetch task page data:", result.error);
+        toast({ title: "Error", description: result.error || "Could not load task data.", variant: "destructive" });
+        notFound(); 
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to fetch task details:", error);
+      toast({ title: "Error", description: "An unexpected error occurred while loading task data.", variant: "destructive" });
+      notFound(); 
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return; 
@@ -45,39 +83,10 @@ export default function TaskDetailPage() {
       router.replace('/login'); 
       return;
     }
-
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const result = await fetchTaskPageData(taskId); 
-
-        if (result.success && result.taskDetails && result.comments && result.users) {
-          if (!result.taskDetails) { 
-            notFound(); 
-            return;
-          }
-          setTaskDetails(result.taskDetails as EnrichedTaskDetails); 
-          setComments(result.comments);
-          setUsers(result.users);
-        } else {
-          console.error("Failed to fetch task page data:", result.error);
-          toast({ title: "Error", description: result.error || "Could not load task data.", variant: "destructive" });
-          notFound(); 
-          return;
-        }
-
-      } catch (error) {
-        console.error("Failed to fetch task details:", error);
-        toast({ title: "Error", description: "An unexpected error occurred while loading task data.", variant: "destructive" });
-        notFound(); 
-      } finally {
-        setLoading(false);
-      }
-    }
-
     if (taskId && currentUser) {
       fetchData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, currentUser, authLoading, router, toast]);
 
 
@@ -97,18 +106,12 @@ export default function TaskDetailPage() {
       const result = await changeTaskStatusAndLog(taskDetails.id, newStatus, currentUser.id);
       if (result.success) {
         toast({ title: "Status Updated", description: result.success });
-        // Re-fetch data to update UI (or optimistically update)
-        const updatedData = await fetchTaskPageData(taskId);
-        if (updatedData.success && updatedData.taskDetails && updatedData.comments) {
-          setTaskDetails(updatedData.taskDetails as EnrichedTaskDetails);
-          setComments(updatedData.comments);
-        }
+        fetchData(); // Re-fetch all data
       } else {
         toast({ title: "Error", description: result.error || "Could not update status.", variant: "destructive" });
       }
     });
   };
-
 
   if (loading || authLoading) {
     return (
@@ -124,11 +127,15 @@ export default function TaskDetailPage() {
   }
   
   if (!currentUser) {
+    // This case should be handled by the redirect in useEffect, but as a fallback:
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
   const canRequestCustomerRevision = taskDetails.status !== "Требует доработки от заказчика" && taskDetails.status !== "Завершено" && taskDetails.status !== "Новая";
   const canRequestExecutorRevision = taskDetails.status !== "Требует доработки от исполнителя" && taskDetails.status !== "Завершено" && taskDetails.executorId;
+
+  const showProposalForm = currentUserRole === 'исполнитель' && !taskDetails.executorId && (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку") && !taskProposals.some(p => p.executorId === currentUser.id);
+  const showProposalList = currentUserRole === 'заказчик' && !taskDetails.executorId && taskProposals.length > 0 && (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
 
 
   return (
@@ -212,30 +219,62 @@ export default function TaskDetailPage() {
           )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2 pt-4 border-t">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleStatusChange("Требует доработки от заказчика")}
-              disabled={!canRequestCustomerRevision || isStatusChanging}
-              className="shadow-sm"
-            >
-              {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SendToBack className="mr-2 h-4 w-4" />}
-              Запросить доработку у Заказчика
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleStatusChange("Требует доработки от исполнителя")}
-              disabled={!canRequestExecutorRevision || isStatusChanging}
-              className="shadow-sm"
-            >
-              {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Reply className="mr-2 h-4 w-4" />}
-              Отправить на доработку Исполнителю
-            </Button>
+          {currentUser.id === taskDetails.customerId && taskDetails.executorId && ( // Customer specific actions
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleStatusChange("Требует доработки от исполнителя")}
+                disabled={!canRequestExecutorRevision || isStatusChanging}
+                className="shadow-sm"
+                title="Return task to executor for revision"
+              >
+                {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Reply className="mr-2 h-4 w-4" />}
+                Send to Executor for Revision
+              </Button>
+            </>
+          )}
+          {currentUser.id === taskDetails.executorId && ( // Executor specific actions
+             <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleStatusChange("Требует доработки от заказчика")}
+                disabled={!canRequestCustomerRevision || isStatusChanging}
+                className="shadow-sm"
+                title="Request clarification or revision from customer"
+              >
+                {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SendToBack className="mr-2 h-4 w-4" />}
+                Request Customer Revision
+              </Button>
+            </>
+          )}
         </CardFooter>
       </Card>
-      <CommentSection taskId={taskDetails.id} comments={comments} users={users} />
+
+      {/* Task Proposal Section */}
+      {showProposalForm && (
+        <TaskProposalForm taskId={taskDetails.id} onProposalSubmitted={fetchData} />
+      )}
+      {showProposalList && (
+        <TaskProposalList 
+            proposals={taskProposals} 
+            taskId={taskDetails.id} 
+            taskCustomerId={taskDetails.customerId}
+            currentTaskExecutorId={taskDetails.executorId}
+            onProposalAccepted={fetchData}
+        />
+      )}
+
+
+      <CommentSection 
+        taskId={taskDetails.id} 
+        comments={comments} 
+        users={users}
+        taskStatus={taskDetails.status}
+        taskCustomerId={taskDetails.customerId}
+        taskExecutorId={taskDetails.executorId}
+      />
     </div>
   );
 }
-

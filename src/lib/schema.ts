@@ -1,11 +1,12 @@
+
 import { z } from 'zod';
-import { TASK_STATUSES } from './constants'; // USER_ROLES removed
+import { TASK_STATUSES } from './constants'; 
 
 export const RegisterSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  roleId: z.string().min(1, { message: "Role is required." }), // Changed from role to roleId
+  roleId: z.string().min(1, { message: "Role is required." }), 
 });
 
 export type RegisterFormData = z.infer<typeof RegisterSchema>;
@@ -47,8 +48,19 @@ export type TaskFormData = z.infer<typeof TaskSchema>;
 export const CommentSchema = z.object({
   text: z.string().min(1, { message: "Comment text cannot be empty." }),
   attachments: fileListSchema,
-  // action field removed
+  newStatusToSet: z.enum([...TASK_STATUSES, "none"] as [TaskStatus | "none", ...(TaskStatus | "none")[]]).optional()
+    .transform(val => val === "none" ? undefined : val) as z.ZodOptional<z.ZodEnum<typeof TASK_STATUSES>>,
 });
 
 export type CommentFormData = z.infer<typeof CommentSchema>;
 
+export const TaskProposalSchema = z.object({
+  taskId: z.string().uuid(),
+  proposedCost: z.coerce.number().positive({ message: "Proposed cost must be a positive number." }).nullable().optional(),
+  proposedDueDate: z.date().nullable().optional(),
+}).refine(data => data.proposedCost !== null || data.proposedDueDate !== null, {
+  message: "Either proposed cost or proposed due date must be provided.",
+  path: ["proposedCost"], // You can point to one field or a general error
+});
+
+export type TaskProposalFormData = z.infer<typeof TaskProposalSchema>;

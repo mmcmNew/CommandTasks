@@ -1,6 +1,7 @@
+
 'use server';
-import type { TaskFormData } from '@/lib/schema';
-import { TaskSchema } from '@/lib/schema';
+import type { TaskFormData, TaskProposalFormData } from '@/lib/schema';
+import { TaskSchema, TaskProposalSchema } from '@/lib/schema';
 import { 
   addTask, 
   getTaskById, 
@@ -10,12 +11,17 @@ import {
   getCommentsByTaskId as fetchCommentsFromDb,
   getUserRoles as fetchUserRolesFromDb,
   getUsers as fetchAllUsersFromDb,
-  addComment, // Import addComment
-  getUserById, // Import getUserById
+  addComment, 
+  getUserById, 
+  addTaskProposal as saveTaskProposal,
+  getTaskProposalsByTaskId as fetchTaskProposalsFromDb,
+  getTaskProposalById as fetchTaskProposalByIdFromDb,
+  deleteTaskProposalsByTaskId,
+  deleteTaskProposalById,
 } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
-import type { Task, TaskAttachment, Comment, TaskStatus } from '@/types'; // Added Comment and TaskStatus
+import type { Task, TaskAttachment, Comment, TaskStatus, TaskProposal, UserRoleName, EnrichedTaskProposal, User } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 export async function createTask(formData: FormData, authorId: string) { 
@@ -105,26 +111,21 @@ export async function getTaskDetails(taskId: string) {
   };
 }
 
-export async function getTasksForCurrentUser(userId: string) { 
-  if (!userId) {
-    return []; 
-  }
-  return await getAllTasks();
-}
-
-// Removed old updateTaskStatus function
-
 export async function changeTaskStatusAndLog(
   taskId: string,
-  newStatus: TaskStatus, // Should be one of "Требует доработки от заказчика" or "Требует доработки от исполнителя"
+  newStatus: TaskStatus, 
   currentUserId: string
 ) {
   if (!currentUserId) {
     return { error: 'Unauthorized. User ID is missing.' };
   }
 
+  // This action is for specific status changes that need explicit logging.
+  // General status changes might be handled differently (e.g., within acceptTaskProposal).
   if (newStatus !== "Требует доработки от заказчика" && newStatus !== "Требует доработки от исполнителя") {
-    return { error: 'Invalid status for this action.' };
+    // For other status changes, direct update or other actions might be more appropriate.
+    // However, if a comment log is always desired, this check can be broadened or removed.
+     // return { error: 'Invalid status for this specific logging action.' };
   }
 
   const task = await getTaskById(taskId);
@@ -135,13 +136,14 @@ export async function changeTaskStatusAndLog(
   const user = await getUserById(currentUserId);
   const userName = user ? user.name : 'Система';
 
+  const oldStatus = task.status;
   task.status = newStatus;
 
-  const commentText = `Пользователь ${userName} изменил статус задачи на: "${newStatus}".`;
+  const commentText = `Пользователь ${userName} изменил статус задачи с "${oldStatus}" на: "${newStatus}".`;
   const newComment: Comment = {
     id: uuidv4(),
     taskId: taskId,
-    authorId: currentUserId,
+    authorId: currentUserId, // System or user who initiated
     text: commentText,
     attachments: [],
     timestamp: new Date().toISOString(),
@@ -160,7 +162,7 @@ export async function changeTaskStatusAndLog(
 }
 
 
-export async function fetchTaskPageData(taskId: string) {
+export async function fetchTaskPageData(taskId: string, currentUserId?: string) {
   try {
     const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); 
     
@@ -170,12 +172,29 @@ export async function fetchTaskPageData(taskId: string) {
 
     const comments = await fetchCommentsFromDb(taskId);
     const allUsersList = await fetchAllUsersFromDb();
+    const userRoles = await fetchUserRolesFromDb();
+
+    // Fetch and enrich task proposals
+    const rawProposals = await fetchTaskProposalsFromDb(taskId);
+    const enrichedProposals: EnrichedTaskProposal[] = rawProposals.map(proposal => {
+      const executor = allUsersList.find(u => u.id === proposal.executorId);
+      return {
+        ...proposal,
+        executorName: executor?.name || 'Unknown Executor',
+        executorEmail: executor?.email || '',
+      };
+    });
+    
+    const currentUser = currentUserId ? await getUserById(currentUserId) : null;
 
     return { 
       success: true, 
       taskDetails: taskDetailsWithEnrichedUsers,
       comments, 
-      users: allUsersList 
+      users: allUsersList,
+      taskProposals: enrichedProposals,
+      userRoles, // Pass roles for UI logic
+      currentUserRoleName: currentUser?.roleName
     };
   } catch (error) {
     console.error(`Failed to fetch page data for task ${taskId}:`, error);
@@ -196,3 +215,125 @@ export async function fetchNewTaskPageData() {
   }
 }
 
+export async function submitTaskProposal(formData: FormData, currentUserId: string) {
+  if (!currentUserId) {
+    return { error: 'Unauthorized. User ID is missing.' };
+  }
+  const currentUser = await getUserById(currentUserId);
+  if (!currentUser || currentUser.roleName !== 'исполнитель') {
+    return { error: 'Only executors can submit proposals.' };
+  }
+
+  const taskId = formData.get('taskId') as string;
+  const rawFormData = {
+    taskId,
+    proposedCost: formData.get('proposedCost') ? parseFloat(formData.get('cost') as string) : null,
+    proposedDueDate: formData.get('proposedDueDate') ? new Date(formData.get('proposedDueDate') as string) : null,
+  };
+
+  const validatedFields = TaskProposalSchema.safeParse(rawFormData);
+  if (!validatedFields.success) {
+    return { error: 'Invalid proposal data.', details: validatedFields.error.flatten().fieldErrors };
+  }
+
+  const { proposedCost, proposedDueDate } = validatedFields.data;
+
+  const task = await getTaskById(taskId);
+  if (!task) {
+    return { error: 'Task not found.' };
+  }
+  if (task.executorId) {
+    return { error: 'Task already has an assigned executor.' };
+  }
+  if (task.status !== 'Новая' && task.status !== 'Ожидает оценку') {
+     return { error: 'Task is not open for proposals at this stage.' };
+  }
+
+
+  const newProposal: TaskProposal = {
+    id: uuidv4(),
+    taskId,
+    executorId: currentUserId,
+    proposedCost,
+    proposedDueDate: proposedDueDate ? proposedDueDate.toISOString() : null,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await saveTaskProposal(newProposal);
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: 'Proposal submitted successfully.' };
+  } catch (error) {
+    console.error('Error submitting task proposal:', error);
+    return { error: 'Could not submit proposal.' };
+  }
+}
+
+export async function acceptTaskProposal(proposalId: string, currentUserId: string) {
+  if (!currentUserId) {
+    return { error: 'Unauthorized. User ID is missing.' };
+  }
+
+  const proposal = await fetchTaskProposalByIdFromDb(proposalId);
+  if (!proposal) {
+    return { error: 'Proposal not found.' };
+  }
+
+  const task = await getTaskById(proposal.taskId);
+  if (!task) {
+    return { error: 'Task not found.' };
+  }
+
+  if (task.customerId !== currentUserId) {
+    return { error: 'Only the task customer can accept proposals.' };
+  }
+
+  if (task.executorId) {
+    return { error: 'Task already has an assigned executor.' };
+  }
+  
+  const customer = await getUserById(task.customerId);
+  const executor = await getUserById(proposal.executorId);
+
+  if (!customer || !executor) {
+    return { error: 'Customer or Executor details not found.'};
+  }
+
+  // Update task details
+  task.executorId = proposal.executorId;
+  task.cost = proposal.proposedCost;
+  task.dueDate = proposal.proposedDueDate;
+  const oldStatus = task.status;
+  task.status = 'В работе'; // Or another appropriate status
+
+  // Log the assignment and status change as a comment
+  const commentText = `Заказчик ${customer.name} назначил исполнителя ${executor.name} для задачи. ` +
+                      `Условия: стоимость - ${proposal.proposedCost !== null ? `$${proposal.proposedCost.toLocaleString()}` : 'N/A'}, ` +
+                      `срок - ${proposal.proposedDueDate ? new Date(proposal.proposedDueDate).toLocaleDateString() : 'N/A'}. ` +
+                      `Статус задачи изменен с "${oldStatus}" на "${task.status}".`;
+  
+  const assignmentComment: Comment = {
+    id: uuidv4(),
+    taskId: task.id,
+    authorId: currentUserId, // Customer is making the assignment
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(assignmentComment);
+    
+    // Remove this accepted proposal and other proposals for this task
+    await deleteTaskProposalById(proposalId); // Delete the accepted one so it doesn't show again
+    await deleteTaskProposalsByTaskId(task.id); // Delete other pending proposals for this task
+
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${task.id}`);
+    return { success: 'Proposal accepted and executor assigned.' };
+  } catch (error) {
+    console.error('Error accepting task proposal:', error);
+    return { error: 'Could not accept proposal.' };
+  }
+}

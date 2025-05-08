@@ -1,4 +1,5 @@
-import type { Comment as CommentType, User } from '@/types';
+
+import type { Comment as CommentType, User, TaskStatus } from '@/types';
 import CommentItem from './comment-item';
 import CommentForm from './comment-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +9,12 @@ interface CommentSectionProps {
   taskId: string;
   comments: CommentType[];
   users: User[];
-  // currentUserId prop removed, CommentForm will use AuthContext
+  taskStatus: TaskStatus;
+  taskCustomerId: string;
+  taskExecutorId: string | null;
 }
 
-export default function CommentSection({ taskId, comments, users }: CommentSectionProps) {
+export default function CommentSection({ taskId, comments, users, taskStatus, taskCustomerId, taskExecutorId }: CommentSectionProps) {
   return (
     <Card className="shadow-xl">
       <CardHeader>
@@ -24,16 +27,20 @@ export default function CommentSection({ taskId, comments, users }: CommentSecti
       </CardHeader>
       <CardContent>
         {comments.length > 0 && (
-          <div className="space-y-0 mb-6 max-h-[500px] overflow-y-auto pr-2 rounded-md"> {/* Added scroll */}
+          <div className="space-y-0 mb-6 max-h-[500px] overflow-y-auto pr-2 rounded-md">
             {comments
-              .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Sort by oldest first
+              .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) 
               .map((comment) => (
                 <CommentItem key={comment.id} comment={comment} users={users} />
             ))}
           </div>
         )}
-        {/* CommentForm no longer needs currentUserId prop */}
-        <CommentForm taskId={taskId} />
+        <CommentForm 
+          taskId={taskId} 
+          taskStatus={taskStatus}
+          taskCustomerId={taskCustomerId}
+          taskExecutorId={taskExecutorId}
+        />
       </CardContent>
     </Card>
   );
