@@ -1,7 +1,13 @@
 
 'use client';
 
-import { fetchTaskPageData, changeTaskStatusAndLog } from '@/lib/actions/task.actions';
+import { 
+  fetchTaskPageData, 
+  changeTaskStatusAndLog,
+  markTaskAsCompletedByExecutorAction,
+  acceptCompletedTaskByCustomerAction,
+  confirmPaymentAndFinalizeTaskAction
+} from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
 import TaskProposalForm from '@/components/proposals/task-proposal-form';
@@ -9,7 +15,10 @@ import TaskProposalList from '@/components/proposals/task-proposal-list';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, SendToBack, Reply, Edit } from 'lucide-react';
+import { 
+  CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
+  SendToBack, Reply, Edit, CheckCircle, ThumbsUp, CircleDollarSign
+} from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -41,7 +50,12 @@ export default function TaskDetailPage() {
   const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<UserRoleName | null>(null);
   const [loading, setLoading] = useState(true);
+  
   const [isStatusChanging, startStatusChangeTransition] = useTransition();
+  const [isCompletingTask, startCompleteTaskTransition] = useTransition();
+  const [isAcceptingTask, startAcceptTaskTransition] = useTransition();
+  const [isConfirmingPayment, startConfirmPaymentTransition] = useTransition();
+
 
   const fetchData = async () => {
     if (!currentUser) return;
@@ -99,7 +113,7 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleStatusChange = async (newStatus: TaskStatus) => {
+  const handleRevisionStatusChange = async (newStatus: TaskStatus) => {
     if (!currentUser || !taskDetails) return;
 
     startStatusChangeTransition(async () => {
@@ -112,6 +126,46 @@ export default function TaskDetailPage() {
       }
     });
   };
+
+  const handleMarkTaskAsCompleted = () => {
+    if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
+    startCompleteTaskTransition(async () => {
+      const result = await markTaskAsCompletedByExecutorAction(taskDetails.id, currentUser.id);
+      if (result.success) {
+        toast({ title: "Task Marked as Completed", description: result.success });
+        fetchData();
+      } else {
+        toast({ title: "Error", description: result.error || "Could not mark task as completed.", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleAcceptCompletedTask = () => {
+    if (!currentUser || !taskDetails || taskDetails.customerId !== currentUser.id) return;
+    startAcceptTaskTransition(async () => {
+      const result = await acceptCompletedTaskByCustomerAction(taskDetails.id, currentUser.id);
+      if (result.success) {
+        toast({ title: "Task Accepted", description: result.success });
+        fetchData();
+      } else {
+        toast({ title: "Error", description: result.error || "Could not accept task.", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleConfirmPayment = () => {
+    if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
+    startConfirmPaymentTransition(async () => {
+      const result = await confirmPaymentAndFinalizeTaskAction(taskDetails.id, currentUser.id);
+      if (result.success) {
+        toast({ title: "Payment Confirmed", description: result.success });
+        fetchData();
+      } else {
+        toast({ title: "Error", description: result.error || "Could not confirm payment.", variant: "destructive" });
+      }
+    });
+  };
+
 
   if (loading || authLoading) {
     return (
@@ -131,8 +185,18 @@ export default function TaskDetailPage() {
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
-  const canRequestCustomerRevision = taskDetails.status !== "Требует доработки от заказчика" && taskDetails.status !== "Завершено" && taskDetails.status !== "Новая";
-  const canRequestExecutorRevision = taskDetails.status !== "Требует доработки от исполнителя" && taskDetails.status !== "Завершено" && taskDetails.executorId;
+  const canRequestCustomerRevision = taskDetails.status !== "Требует доработки от заказчика" && 
+                                 taskDetails.status !== "Завершено" && 
+                                 taskDetails.status !== "Новая" &&
+                                 taskDetails.status !== "Ожидает проверку" &&
+                                 taskDetails.status !== "Ожидает оплату";
+
+  const canRequestExecutorRevision = taskDetails.status !== "Требует доработки от исполнителя" && 
+                                 taskDetails.status !== "Завершено" && 
+                                 taskDetails.executorId &&
+                                 taskDetails.status !== "Ожидает проверку" &&
+                                 taskDetails.status !== "Ожидает оплату";
+
 
   // Show proposal form if current user is an executor and task is open for proposals (not assigned)
   const showProposalForm = currentUserRole === 'исполнитель' && 
@@ -227,14 +291,15 @@ export default function TaskDetailPage() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2 pt-4 border-t">
-          {currentUser.id === taskDetails.customerId && taskDetails.executorId && ( // Customer specific actions
+        <CardFooter className="flex flex-wrap justify-start items-start sm:items-center gap-2 pt-4 border-t">
+          {/* Revision Buttons */}
+          {currentUser.id === taskDetails.customerId && taskDetails.executorId && ( 
             <>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => handleStatusChange("Требует доработки от исполнителя")}
-                disabled={!canRequestExecutorRevision || isStatusChanging}
+                onClick={() => handleRevisionStatusChange("Требует доработки от исполнителя")}
+                disabled={!canRequestExecutorRevision || isStatusChanging || isCompletingTask || isAcceptingTask || isConfirmingPayment}
                 className="shadow-sm"
                 title="Return task to executor for revision"
               >
@@ -243,13 +308,13 @@ export default function TaskDetailPage() {
               </Button>
             </>
           )}
-          {currentUser.id === taskDetails.executorId && ( // Executor specific actions
+          {currentUser.id === taskDetails.executorId && ( 
              <>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => handleStatusChange("Требует доработки от заказчика")}
-                disabled={!canRequestCustomerRevision || isStatusChanging}
+                onClick={() => handleRevisionStatusChange("Требует доработки от заказчика")}
+                disabled={!canRequestCustomerRevision || isStatusChanging || isCompletingTask || isAcceptingTask || isConfirmingPayment}
                 className="shadow-sm"
                 title="Request clarification or revision from customer"
               >
@@ -257,6 +322,47 @@ export default function TaskDetailPage() {
                 Request Customer Revision
               </Button>
             </>
+          )}
+
+          {/* Task Completion Flow Buttons */}
+          {currentUser.id === taskDetails.executorId && taskDetails.status === "В работе" && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleMarkTaskAsCompleted}
+              disabled={isCompletingTask || isStatusChanging || isAcceptingTask || isConfirmingPayment}
+              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+              title="Mark this task as completed"
+            >
+              {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+              Завершить выполнение
+            </Button>
+          )}
+          {currentUser.id === taskDetails.customerId && taskDetails.status === "Ожидает проверку" && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleAcceptCompletedTask}
+              disabled={isAcceptingTask || isStatusChanging || isCompletingTask || isConfirmingPayment}
+              className="shadow-md bg-blue-600 hover:bg-blue-700 text-white"
+              title="Accept the completed work for this task"
+            >
+              {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
+              Принять задачу
+            </Button>
+          )}
+           {currentUser.id === taskDetails.executorId && taskDetails.status === "Ожидает оплату" && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleConfirmPayment}
+              disabled={isConfirmingPayment || isStatusChanging || isCompletingTask || isAcceptingTask}
+              className="shadow-md bg-teal-600 hover:bg-teal-700 text-white"
+              title="Confirm that payment has been received for this task"
+            >
+              {isConfirmingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CircleDollarSign className="mr-2 h-4 w-4" />}
+              Подтвердить оплату
+            </Button>
           )}
         </CardFooter>
       </Card>

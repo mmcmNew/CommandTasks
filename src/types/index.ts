@@ -20,7 +20,9 @@ export type TaskStatus =
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
   | "В работе"
-  | "Завершено";
+  | "Ожидает проверку" // New: Executor has marked task as done
+  | "Ожидает оплату"   // New: Customer has accepted the work, pending payment confirmation
+  | "Завершено"; // Final state, implies payment confirmed in the new flow
 
 export interface TaskAttachment {
   path: string;
@@ -82,3 +84,4 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+

@@ -32,6 +32,14 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'default';
       statusColorClass = 'bg-accent text-accent-foreground'; // Teal (Accent theme color)
       break;
+    case 'Ожидает проверку': // New
+      variant = 'default';
+      statusColorClass = 'bg-blue-500 text-white'; // Example: Blue
+      break;
+    case 'Ожидает оплату': // New
+      variant = 'default';
+      statusColorClass = 'bg-amber-500 text-white'; // Example: Amber
+      break;
     case 'Завершено':
       variant = 'secondary';
       statusColorClass = 'bg-green-600 text-white';
@@ -47,3 +55,4 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
     </Badge>
   );
 }
+

@@ -114,7 +114,7 @@ export async function getTaskDetails(taskId: string) {
 export async function changeTaskStatusAndLog(
   taskId: string,
   newStatus: TaskStatus, 
-  currentUserId: string
+  currentUserId: string // Changed from actingUserId to currentUserId for consistency
 ) {
   if (!currentUserId) {
     return { error: 'Unauthorized. User ID is missing.' };
@@ -331,3 +331,115 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
   }
 }
 
+// New actions for task completion flow
+
+export async function markTaskAsCompletedByExecutorAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+  if (task.executorId !== currentUserId) return { error: 'Only the assigned executor can mark this task as completed.' };
+  if (task.status !== 'В работе') return { error: `Task cannot be marked as completed from status: ${task.status}.` };
+
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Исполнитель';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'Ожидает проверку';
+  
+  task.status = newStatus;
+
+  const commentText = `Исполнитель ${userName} отметил задачу как выполненную. Статус изменен с "${oldStatus}" на "${newStatus}". Ожидается проверка заказчиком.`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: `Task marked as completed. Status: ${newStatus}.` };
+  } catch (error) {
+    console.error('Error marking task as completed:', error);
+    return { error: 'Could not mark task as completed.' };
+  }
+}
+
+export async function acceptCompletedTaskByCustomerAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+  if (task.customerId !== currentUserId) return { error: 'Only the customer can accept this task.' };
+  if (task.status !== 'Ожидает проверку') return { error: `Task cannot be accepted from status: ${task.status}.` };
+  
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Заказчик';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'Ожидает оплату';
+
+  task.status = newStatus;
+
+  const commentText = `Заказчик ${userName} принял выполненную работу. Статус изменен с "${oldStatus}" на "${newStatus}". Ожидается подтверждение оплаты исполнителем.`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: `Task accepted. Status: ${newStatus}.` };
+  } catch (error) {
+    console.error('Error accepting task:', error);
+    return { error: 'Could not accept task.' };
+  }
+}
+
+export async function confirmPaymentAndFinalizeTaskAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+  if (task.executorId !== currentUserId) return { error: 'Only the assigned executor can confirm payment for this task.' };
+  if (task.status !== 'Ожидает оплату') return { error: `Payment cannot be confirmed for task with status: ${task.status}.` };
+
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Исполнитель';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'Завершено';
+
+  task.status = newStatus;
+
+  const commentText = `Исполнитель ${userName} подтвердил получение оплаты. Статус изменен с "${oldStatus}" на "${newStatus}". Задача завершена.`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    return { success: `Payment confirmed. Task finalized with status: ${newStatus}.` };
+  } catch (error) {
+    console.error('Error confirming payment and finalizing task:', error);
+    return { error: 'Could not confirm payment or finalize task.' };
+  }
+}
