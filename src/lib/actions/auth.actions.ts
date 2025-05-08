@@ -5,7 +5,15 @@ import { getUserByEmail, addUser } from '@/lib/data';
 import { createSession, deleteSession } from '@/lib/session';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { redirect } from 'next/navigation';
+import type { UserRole, CurrentUser } from '@/types'; // Import CurrentUser
+
+// Define a clear return type for loginUser
+interface LoginUserResult {
+  success?: string;
+  user?: CurrentUser; // User details for client-side storage
+  error?: string;
+  details?: z.ZodError<LoginFormData>['formErrors']['fieldErrors'];
+}
 
 export async function registerUser(formData: RegisterFormData) {
   const validatedFields = RegisterSchema.safeParse(formData);
@@ -32,17 +40,14 @@ export async function registerUser(formData: RegisterFormData) {
 
   try {
     await addUser(newUser);
-    // Optionally, log the user in directly after registration
-    // await createSession(newUser.id, newUser.role);
-    // return { success: 'Registration successful! Redirecting to login...' };
-     return { success: 'Registration successful! Please log in.' };
+    return { success: 'Registration successful! Please log in.' };
   } catch (error) {
     console.error('Registration error:', error);
     return { error: 'Could not register user.' };
   }
 }
 
-export async function loginUser(formData: LoginFormData) {
+export async function loginUser(formData: LoginFormData): Promise<LoginUserResult> {
   const validatedFields = LoginSchema.safeParse(formData);
 
   if (!validatedFields.success) {
@@ -62,9 +67,12 @@ export async function loginUser(formData: LoginFormData) {
   }
 
   try {
-    await createSession(user.id, user.role);
-    // No explicit redirect here, let the component handle it or use middleware
-    return { success: 'Login successful!' };
+    await createSession(user.id, user.role); // Sets HTTP-only cookie
+    // Return user details for client-side
+    return { 
+      success: 'Login successful!', 
+      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
+    };
   } catch (error) {
     console.error('Login error:', error);
     return { error: 'Could not log in.' };
@@ -72,6 +80,6 @@ export async function loginUser(formData: LoginFormData) {
 }
 
 export async function logoutUser() {
-  await deleteSession();
-  redirect('/login');
+  await deleteSession(); // Clears HTTP-only cookie
+  // Client-side should handle redirect after logout
 }

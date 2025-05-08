@@ -7,7 +7,7 @@ import { LoginSchema } from '@/lib/schema';
 import { loginUser } from '@/lib/actions/auth.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// import { Label } from '@/components/ui/label'; // No longer directly used due to FormField
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +15,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from 'react';
 import { LogIn } from 'lucide-react';
+import type { CurrentUser } from '@/types';
+
 
 export default function LoginForm() {
   const { toast } = useToast();
@@ -33,16 +35,16 @@ export default function LoginForm() {
     setIsLoading(true);
     try {
       const result = await loginUser(data);
-      if (result.success) {
+      if (result.success && result.user) {
         toast({
           title: 'Login Successful',
-          description: 'You will be redirected shortly.',
+          description: 'Redirecting to dashboard...',
         });
-        // Instead of router.push, we rely on router.refresh() which will
-        // cause the middleware to redirect if the user is now logged in
-        // and on an auth page (like /login).
-        router.refresh(); 
+        // Store non-sensitive user info in localStorage
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+        router.push('/dashboard'); 
       } else {
+        // Handle cases where login failed or user data wasn't returned (though it should be on success)
         toast({
           title: 'Login Failed',
           description: result.error || 'An unknown error occurred.',
@@ -50,6 +52,7 @@ export default function LoginForm() {
         });
       }
     } catch (error) {
+      // Catch errors from the action call itself or network issues
       toast({
         title: 'Login Error',
         description: 'An unexpected error occurred. Please try again.',

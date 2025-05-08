@@ -53,8 +53,15 @@ export interface Comment {
   action: CommentAction | null;
 }
 
-export interface SessionPayload {
+export interface SessionPayload { // For secure HTTP-only cookie session
   userId: string;
   role: UserRole;
   expiresAt: Date;
+}
+
+export interface CurrentUser { // For localStorage, non-sensitive user details
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
 }
