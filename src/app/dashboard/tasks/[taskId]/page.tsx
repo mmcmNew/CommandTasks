@@ -134,8 +134,17 @@ export default function TaskDetailPage() {
   const canRequestCustomerRevision = taskDetails.status !== "Требует доработки от заказчика" && taskDetails.status !== "Завершено" && taskDetails.status !== "Новая";
   const canRequestExecutorRevision = taskDetails.status !== "Требует доработки от исполнителя" && taskDetails.status !== "Завершено" && taskDetails.executorId;
 
-  const showProposalForm = currentUserRole === 'исполнитель' && !taskDetails.executorId && (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку") && !taskProposals.some(p => p.executorId === currentUser.id);
-  const showProposalList = currentUserRole === 'заказчик' && !taskDetails.executorId && taskProposals.length > 0 && (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
+  // Show proposal form if current user is an executor and task is open for proposals (not assigned)
+  const showProposalForm = currentUserRole === 'исполнитель' && 
+                           !taskDetails.executorId && 
+                           (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
+
+  const showProposalList = currentUserRole === 'заказчик' && 
+                           !taskDetails.executorId && 
+                           taskProposals.length > 0 && 
+                           (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
+
+  const currentUserProposal = taskProposals.find(p => p.executorId === currentUser.id);
 
 
   return (
@@ -254,7 +263,11 @@ export default function TaskDetailPage() {
 
       {/* Task Proposal Section */}
       {showProposalForm && (
-        <TaskProposalForm taskId={taskDetails.id} onProposalSubmitted={fetchData} />
+        <TaskProposalForm 
+          taskId={taskDetails.id} 
+          onProposalSubmitted={fetchData} 
+          existingProposal={currentUserProposal}
+        />
       )}
       {showProposalList && (
         <TaskProposalList 
@@ -278,3 +291,4 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+

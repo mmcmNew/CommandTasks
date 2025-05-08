@@ -17,7 +17,7 @@ import {
   getTaskProposalsByTaskId as fetchTaskProposalsFromDb,
   getTaskProposalById as fetchTaskProposalByIdFromDb,
   deleteTaskProposalsByTaskId,
-  deleteTaskProposalById,
+  // deleteTaskProposalById, // Not currently used, but keep for future
 } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
@@ -235,29 +235,32 @@ export async function submitTaskProposal(formData: FormData, currentUserId: stri
     return { error: 'Task not found.' };
   }
   if (task.executorId) {
-    return { error: 'Task already has an assigned executor.' };
+    return { error: 'Task already has an assigned executor. Proposals cannot be submitted or edited.' };
   }
   if (task.status !== 'Новая' && task.status !== 'Ожидает оценку') {
      return { error: 'Task is not open for proposals at this stage.' };
   }
 
+  // Check if this executor already has a proposal for this task
+  const existingProposals = await fetchTaskProposalsFromDb(taskId);
+  const existingProposalForUser = existingProposals.find(p => p.executorId === currentUserId);
 
-  const newProposal: TaskProposal = {
-    id: uuidv4(),
+  const proposalToSave: TaskProposal = {
+    id: existingProposalForUser ? existingProposalForUser.id : uuidv4(), // Use existing ID if updating
     taskId,
     executorId: currentUserId,
     proposedCost,
     proposedDueDate: proposedDueDate ? proposedDueDate.toISOString() : null,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString(), // Always update timestamp for new or edited proposal
   };
 
   try {
-    await saveTaskProposal(newProposal);
+    await saveTaskProposal(proposalToSave); // saveTaskProposal handles create or update
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: 'Proposal submitted successfully.' };
+    return { success: existingProposalForUser ? 'Proposal updated successfully.' : 'Proposal submitted successfully.' };
   } catch (error) {
-    console.error('Error submitting task proposal:', error);
-    return { error: 'Could not submit proposal.' };
+    console.error('Error submitting/updating task proposal:', error);
+    return { error: 'Could not submit or update proposal.' };
   }
 }
 
@@ -315,8 +318,7 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
     await updateTask(task);
     await addComment(assignmentComment);
     
-    // Keep the accepted proposal for record-keeping, but remove other proposals for this task
-    // No, on accept, delete all proposals for this task, including the accepted one
+    // Delete all proposals for this task, including the accepted one,
     // as its details are now part of the task.
     await deleteTaskProposalsByTaskId(task.id);
 
@@ -328,3 +330,4 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
     return { error: 'Could not accept proposal.' };
   }
 }
+
