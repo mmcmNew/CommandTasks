@@ -1,7 +1,13 @@
 {
   "userRoles": [
-    { "id": "3f8a7b3b-f71d-475d-8e1a-4c2e5b9c0d8a", "name": "заказчик" },
-    { "id": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l", "name": "исполнитель" }
+    {
+      "id": "3f8a7b3b-f71d-475d-8e1a-4c2e5b9c0d8a",
+      "name": "заказчик"
+    },
+    {
+      "id": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l",
+      "name": "исполнитель"
+    }
   ],
   "users": [
     {
@@ -10,8 +16,52 @@
       "email": "mai@mail.ru",
       "passwordHash": "$2a$10$UPE2/MH3nndLcvp4deKaxOiII7hIGLmbjPcLqiqvucahPaHMlPlX6",
       "roleId": "3f8a7b3b-f71d-475d-8e1a-4c2e5b9c0d8a"
+    },
+    {
+      "id": "6f65a19d-7b6c-4ecf-868b-6a880ac137f4",
+      "name": "Admin",
+      "email": "m@m.ru",
+      "passwordHash": "$2a$10$l1v5UkJj/alWdM.eKNr/IOPdgAJWVQFULC1XJ8go5qeQaaK4t93wK",
+      "roleId": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l"
+    },
+    {
+      "id": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "name": "user2",
+      "email": "test@mail.com",
+      "passwordHash": "$2a$10$1xnMhRnIjFNUHZx4GYwX.u005mUGKdvH.Np2lJbA3aYy/0qZPbJma",
+      "roleId": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l"
     }
   ],
-  "tasks": [],
-  "comments": []
+  "tasks": [
+    {
+      "id": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "title": "Исправить ссылку на курс русского языка",
+      "description": "На главной странице ссылка Русский язык без ошибок: от А до Я ведет на неправильную страницу",
+      "status": "Новая",
+      "dueDate": null,
+      "cost": null,
+      "customerId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "executorId": null,
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "createdAt": "2025-05-08T21:59:26.386Z",
+      "attachments": [
+        {
+          "path": "/uploads/49f6891a-623e-4865-9a7f-8cbac1837034/task/______________2025-05-09_022256.png",
+          "name": "Снимок экрана 2025-05-09 022256.png",
+          "type": "image"
+        }
+      ]
+    }
+  ],
+  "comments": [
+    {
+      "id": "424eb437-2c45-4669-b3c0-f74e4949fc29",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Укажите на какую ссылку изменить",
+      "attachments": [],
+      "timestamp": "2025-05-08T22:02:49.267Z",
+      "action": "Требует доработки от заказчика"
+    }
+  ]
 }
