@@ -8,21 +8,19 @@ import { addCommentToTask } from '@/lib/actions/comment.actions';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Select components removed as action dropdown is gone
 import { useToast } from '@/hooks/use-toast';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from 'react';
-import { Send, Loader2, Paperclip, AlertTriangle } from 'lucide-react';
-import type { CommentAction } from '@/types';
+import { Send, Loader2, Paperclip } from 'lucide-react';
+// CommentAction type removed
 import { useAuth } from '@/context/auth-context';
 
 
 interface CommentFormProps {
   taskId: string;
-  // currentUserId prop removed, will be taken from context
 }
 
-const COMMENT_ACTIONS: CommentAction[] = ["Требует доработки от заказчика", "Требует доработки от исполнителя"];
 
 export default function CommentForm({ taskId }: CommentFormProps) {
   const { toast } = useToast();
@@ -34,7 +32,7 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     defaultValues: {
       text: '',
       attachments: [],
-      action: null,
+      // action field removed
     },
   });
 
@@ -47,19 +45,16 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     setIsLoading(true);
     const formData = new FormData();
     formData.append('text', data.text);
-    if (data.action) {
-      formData.append('action', data.action);
-    }
+    // No action to append
     if (data.attachments && data.attachments.length > 0) {
       data.attachments.forEach(file => {
         if (file instanceof File) formData.append('attachments', file);
       });
     }
     formData.append('taskId', taskId);
-    formData.append('authorId', currentUser.id); // authorId in FormData is for validation, actual authorId for action is passed as param
+    formData.append('authorId', currentUser.id); 
 
     try {
-      // Pass currentUser.id as the currentUserId to the server action
       const result = await addCommentToTask(formData, currentUser.id);
       if (result?.error) {
         toast({
@@ -102,52 +97,28 @@ export default function CommentForm({ taskId }: CommentFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-            control={form.control}
-            name="attachments"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel className="text-sm">Attachments (Optional)</FormLabel>
-                <FormControl>
-                    <Input 
-                    type="file" 
-                    multiple 
-                    onChange={(e) => field.onChange(e.target.files ? Array.from(e.target.files) : [])} 
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="text-xs"
-                    />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-                control={form.control}
-                name="action"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel className="text-sm">Trigger Action (Optional)</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(value === "none" ? null : value)} defaultValue={field.value || "none"}>
-                        <FormControl>
-                        <SelectTrigger className="text-xs">
-                            <SelectValue placeholder="Select an action" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        <SelectItem value="none">No Action</SelectItem>
-                        {COMMENT_ACTIONS.map((action) => (
-                            <SelectItem key={action} value={action}>
-                            <AlertTriangle className="mr-2 h-3 w-3 inline-block"/>{action}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
-        </div>
+        {/* Grid for attachments, action dropdown removed */}
+        <FormField
+          control={form.control}
+          name="attachments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm flex items-center">
+                <Paperclip className="mr-2 h-4 w-4" /> Attachments (Optional)
+              </FormLabel>
+              <FormControl>
+                <Input 
+                  type="file" 
+                  multiple 
+                  onChange={(e) => field.onChange(e.target.files ? Array.from(e.target.files) : [])} 
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="text-xs"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         
         <Button type="submit" disabled={isLoading || !currentUser} className="w-full sm:w-auto shadow-md">
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -157,3 +128,4 @@ export default function CommentForm({ taskId }: CommentFormProps) {
     </Form>
   );
 }
+

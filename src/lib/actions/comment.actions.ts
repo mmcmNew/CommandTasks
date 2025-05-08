@@ -2,19 +2,18 @@
 'use server';
 import type { CommentFormData } from '@/lib/schema';
 import { CommentSchema } from '@/lib/schema';
-import { addComment, saveFile, getTaskById, updateTask } from '@/lib/data';
-// import { getSession } from '@/lib/session'; // No longer using server session
+import { addComment, saveFile } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
-import type { Comment, CommentAction, CommentAttachment, TaskStatus } from '@/types';
+import type { Comment, CommentAttachment } from '@/types';
 
-export async function addCommentToTask(formData: FormData, currentUserId: string) { // Added currentUserId parameter
+export async function addCommentToTask(formData: FormData, currentUserId: string) { 
   if (!currentUserId) {
     return { error: 'Unauthorized. User ID is missing.' };
   }
 
   const taskId = formData.get('taskId') as string;
-  const authorIdFromForm = formData.get('authorId') as string; // This should match currentUserId passed as param
+  const authorIdFromForm = formData.get('authorId') as string; 
   
   if (authorIdFromForm !== currentUserId) {
     return { error: 'User mismatch. Action forbidden.' };
@@ -23,7 +22,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   const rawFormData = {
     text: formData.get('text') as string,
     attachments: formData.getAll('attachments') as File[],
-    action: formData.get('action') as CommentAction | null,
+    // action field removed
   };
 
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
@@ -34,7 +33,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'Invalid fields.', details: validatedFields.error.flatten().fieldErrors };
   }
 
-  const { text, attachments, action } = validatedFields.data;
+  const { text, attachments } = validatedFields.data; // action removed
   const newCommentId = uuidv4();
   const uploadedAttachments: CommentAttachment[] = [];
 
@@ -55,38 +54,21 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   const newComment: Comment = {
     id: newCommentId,
     taskId,
-    authorId: currentUserId, // Use the verified currentUserId
+    authorId: currentUserId, 
     text,
     attachments: uploadedAttachments,
     timestamp: new Date().toISOString(),
-    action: action ?? null,
+    // action field removed
   };
 
   try {
     await addComment(newComment);
-
-    // If the comment includes an action, update the task status accordingly
-    if (newComment.action) {
-      const taskToUpdate = await getTaskById(taskId);
-      if (taskToUpdate) {
-        // The CommentAction values ("Требует доработки от заказчика", "Требует доработки от исполнителя")
-        // are valid TaskStatus values.
-        taskToUpdate.status = newComment.action as TaskStatus;
-        await updateTask(taskToUpdate);
-        // Revalidate the dashboard as well, as task status change affects lists there.
-        revalidatePath('/dashboard'); 
-      } else {
-        // This case should ideally not happen if a comment was just added to a valid task.
-        // Log a warning if the task is not found.
-        console.warn(`Task with ID ${taskId} not found for status update after adding comment ${newCommentId}.`);
-      }
-    }
-
+    // Removed task status update logic; this is now handled by a separate action.
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: 'Comment added and task status updated successfully (if applicable).' };
+    return { success: 'Comment added successfully.' }; // Updated success message
   } catch (error) {
-    console.error('Error during comment addition or task status update:', error);
-    return { error: 'Could not add comment or update task status.' };
+    console.error('Error during comment addition:', error); // Updated error message
+    return { error: 'Could not add comment.' };
   }
 }
 

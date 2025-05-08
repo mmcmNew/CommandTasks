@@ -12,3 +12,4 @@ export const TASK_STATUSES: TaskStatus[] = [
 ];
 
 export const AUTH_COOKIE_NAME = "taskflow_session";
+

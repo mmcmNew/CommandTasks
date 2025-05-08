@@ -1,23 +1,21 @@
 'use client';
 
-// import { getTaskDetails } from '@/lib/actions/task.actions'; // getTaskDetails is now part of fetchTaskPageData
-// import { getCommentsByTaskId, getUsers } from '@/lib/data'; // Removed direct imports
-import { fetchTaskPageData } from '@/lib/actions/task.actions'; // Added server action import
+import { fetchTaskPageData, changeTaskStatusAndLog } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, DollarSign, User, Briefcase, Paperclip, Edit3, FileText, Loader2 } from 'lucide-react';
+import { CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, SendToBack, Reply } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
-import { useEffect, useState } from 'react';
-import type { Comment as CommentType, User as UserType, Task as TaskType } from '@/types';
+import { useEffect, useState, useTransition } from 'react';
+import type { Comment as CommentType, User as UserType, Task as TaskType, TaskStatus } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
-// Define a more specific type for the enriched task details
+
 interface EnrichedTaskDetails extends TaskType {
   authorName: string;
   customerName: string;
@@ -28,6 +26,7 @@ interface EnrichedTaskDetails extends TaskType {
 export default function TaskDetailPage() {
   const params = useParams();
   const taskId = params.taskId as string;
+  const { toast } = useToast();
   
   const { currentUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -36,28 +35,24 @@ export default function TaskDetailPage() {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isStatusChanging, startStatusChangeTransition] = useTransition();
+
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth state to resolve
+    if (authLoading) return; 
 
     if (!currentUser) {
-      router.replace('/login'); // Should be handled by layout, but as a fallback
+      router.replace('/login'); 
       return;
     }
 
     async function fetchData() {
       try {
         setLoading(true);
-        // const [taskData, commentsData, usersData] = await Promise.all([
-        //   getTaskDetails(taskId), // Old way
-        //   getCommentsByTaskId(taskId), // Old way
-        //   getUsers() // Old way
-        // ]);
-
-        const result = await fetchTaskPageData(taskId); // New consolidated server action call
+        const result = await fetchTaskPageData(taskId); 
 
         if (result.success && result.taskDetails && result.comments && result.users) {
-          if (!result.taskDetails) { // taskDetails within result can be null if task not found by action
+          if (!result.taskDetails) { 
             notFound(); 
             return;
           }
@@ -66,12 +61,14 @@ export default function TaskDetailPage() {
           setUsers(result.users);
         } else {
           console.error("Failed to fetch task page data:", result.error);
+          toast({ title: "Error", description: result.error || "Could not load task data.", variant: "destructive" });
           notFound(); 
           return;
         }
 
       } catch (error) {
         console.error("Failed to fetch task details:", error);
+        toast({ title: "Error", description: "An unexpected error occurred while loading task data.", variant: "destructive" });
         notFound(); 
       } finally {
         setLoading(false);
@@ -81,7 +78,7 @@ export default function TaskDetailPage() {
     if (taskId && currentUser) {
       fetchData();
     }
-  }, [taskId, currentUser, authLoading, router]);
+  }, [taskId, currentUser, authLoading, router, toast]);
 
 
   const formatDate = (dateString: string | null) => {
@@ -92,6 +89,26 @@ export default function TaskDetailPage() {
       return 'Invalid Date';
     }
   };
+
+  const handleStatusChange = async (newStatus: TaskStatus) => {
+    if (!currentUser || !taskDetails) return;
+
+    startStatusChangeTransition(async () => {
+      const result = await changeTaskStatusAndLog(taskDetails.id, newStatus, currentUser.id);
+      if (result.success) {
+        toast({ title: "Status Updated", description: result.success });
+        // Re-fetch data to update UI (or optimistically update)
+        const updatedData = await fetchTaskPageData(taskId);
+        if (updatedData.success && updatedData.taskDetails && updatedData.comments) {
+          setTaskDetails(updatedData.taskDetails as EnrichedTaskDetails);
+          setComments(updatedData.comments);
+        }
+      } else {
+        toast({ title: "Error", description: result.error || "Could not update status.", variant: "destructive" });
+      }
+    });
+  };
+
 
   if (loading || authLoading) {
     return (
@@ -109,6 +126,10 @@ export default function TaskDetailPage() {
   if (!currentUser) {
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
+
+  const canRequestCustomerRevision = taskDetails.status !== "Требует доработки от заказчика" && taskDetails.status !== "Завершено" && taskDetails.status !== "Новая";
+  const canRequestExecutorRevision = taskDetails.status !== "Требует доработки от исполнителя" && taskDetails.status !== "Завершено" && taskDetails.executorId;
+
 
   return (
     <div className="space-y-8">
@@ -179,7 +200,7 @@ export default function TaskDetailPage() {
                       rel="noopener noreferrer" 
                       className="text-primary hover:underline hover:text-accent transition-colors flex items-center"
                     >
-                      {att.type === 'image' && <Image data-ai-hint="document" src={att.path} alt={att.name} width={20} height={20} className="mr-2 rounded-sm object-cover" />}
+                      {att.type === 'image' && <Image data-ai-hint="document file" src={att.path} alt={att.name} width={20} height={20} className="mr-2 rounded-sm object-cover" />}
                       {att.type === 'pdf' && <FileText className="mr-2 h-4 w-4" />}
                       {att.type === 'other' && <Paperclip className="mr-2 h-4 w-4" />}
                       {att.name}
@@ -190,14 +211,31 @@ export default function TaskDetailPage() {
             </div>
           )}
         </CardContent>
-        <CardFooter>
-            {/* Edit button could be re-enabled with appropriate logic */}
-            {/* <Button variant="outline">
-                <Edit3 className="mr-2 h-4 w-4" /> Edit Task
-            </Button> */}
+        <CardFooter className="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2 pt-4 border-t">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleStatusChange("Требует доработки от заказчика")}
+              disabled={!canRequestCustomerRevision || isStatusChanging}
+              className="shadow-sm"
+            >
+              {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SendToBack className="mr-2 h-4 w-4" />}
+              Запросить доработку у Заказчика
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleStatusChange("Требует доработки от исполнителя")}
+              disabled={!canRequestExecutorRevision || isStatusChanging}
+              className="shadow-sm"
+            >
+              {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Reply className="mr-2 h-4 w-4" />}
+              Отправить на доработку Исполнителю
+            </Button>
         </CardFooter>
       </Card>
       <CommentSection taskId={taskDetails.id} comments={comments} users={users} />
     </div>
   );
 }
+

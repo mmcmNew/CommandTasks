@@ -1,8 +1,8 @@
 import type { Comment as CommentType, User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format, parseISO } from 'date-fns';
-import { User as UserIcon, Paperclip, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { User as UserIcon, Paperclip, FileText, Image as ImageIcon } from 'lucide-react';
+// Badge and AlertTriangle removed as comment.action is gone
 
 interface CommentItemProps {
   comment: CommentType;
@@ -34,12 +34,7 @@ export default function CommentItem({ comment, users }: CommentItemProps) {
           <p className="text-xs text-muted-foreground">{formatDate(comment.timestamp)}</p>
         </div>
         <p className="text-sm text-foreground whitespace-pre-wrap">{comment.text}</p>
-        {comment.action && (
-          <Badge variant="outline" className="mt-1 text-xs border-orange-500 text-orange-600">
-            <AlertTriangle className="mr-1 h-3 w-3" />
-            Action: {comment.action}
-          </Badge>
-        )}
+        {/* Removed comment.action display block */}
         {comment.attachments && comment.attachments.length > 0 && (
           <div className="mt-2 space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Attachments:</p>
@@ -66,3 +61,4 @@ export default function CommentItem({ comment, users }: CommentItemProps) {
     </div>
   );
 }
+

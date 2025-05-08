@@ -9,15 +9,16 @@ import {
   getTasks as getAllTasks,
   getCommentsByTaskId as fetchCommentsFromDb,
   getUserRoles as fetchUserRolesFromDb,
-  getUsers as fetchAllUsersFromDb 
+  getUsers as fetchAllUsersFromDb,
+  addComment, // Import addComment
+  getUserById, // Import getUserById
 } from '@/lib/data';
-// import { getSession } from '@/lib/session'; // No longer using server session for authorId
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
-import type { Task, TaskAttachment } from '@/types';
+import type { Task, TaskAttachment, Comment, TaskStatus } from '@/types'; // Added Comment and TaskStatus
 import { revalidatePath } from 'next/cache';
 
-export async function createTask(formData: FormData, authorId: string) { // Added authorId parameter
+export async function createTask(formData: FormData, authorId: string) { 
   if (!authorId) {
     return { error: 'Unauthorized. Author ID is missing.' };
   }
@@ -70,7 +71,7 @@ export async function createTask(formData: FormData, authorId: string) { // Adde
     cost: cost ?? null,
     customerId,
     executorId: executorId ?? null,
-    authorId: authorId, // Use passed authorId
+    authorId: authorId, 
     createdAt: new Date().toISOString(),
     attachments: uploadedAttachments,
   };
@@ -91,7 +92,7 @@ export async function getTaskDetails(taskId: string) {
   const task = await getTaskById(taskId);
   if (!task) return null;
 
-  const users = await fetchAllUsersFromDb(); // Use aliased fetchAllUsersFromDb
+  const users = await fetchAllUsersFromDb(); 
   const author = users.find(u => u.id === task.authorId);
   const customer = users.find(u => u.id === task.customerId);
   const executor = task.executorId ? users.find(u => u.id === task.executorId) : null;
@@ -104,40 +105,60 @@ export async function getTaskDetails(taskId: string) {
   };
 }
 
-export async function getTasksForCurrentUser(userId: string) { // Added userId parameter
+export async function getTasksForCurrentUser(userId: string) { 
   if (!userId) {
-    return []; // Or throw error
+    return []; 
   }
-  // This is a placeholder. In a real app, you'd filter tasks based on user role and userId.
-  // For now, it returns all tasks if a userId is provided.
   return await getAllTasks();
 }
 
-export async function updateTaskStatus(taskId: string, status: Task['status'], currentUserId: string) { // Added currentUserId
+// Removed old updateTaskStatus function
+
+export async function changeTaskStatusAndLog(
+  taskId: string,
+  newStatus: TaskStatus, // Should be one of "Требует доработки от заказчика" or "Требует доработки от исполнителя"
+  currentUserId: string
+) {
   if (!currentUserId) {
-     return { error: 'Unauthorized' };
+    return { error: 'Unauthorized. User ID is missing.' };
+  }
+
+  if (newStatus !== "Требует доработки от заказчика" && newStatus !== "Требует доработки от исполнителя") {
+    return { error: 'Invalid status for this action.' };
   }
 
   const task = await getTaskById(taskId);
   if (!task) {
-    return { error: 'Task not found' };
+    return { error: 'Task not found.' };
   }
 
-  // Add role-based logic for who can update status if needed
-  // e.g., if (currentUserId !== task.authorId && currentUserId !== task.executorId && /* user.role !== 'admin' */ ) return { error: 'Forbidden' };
-  
-  task.status = status;
-  
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Система';
+
+  task.status = newStatus;
+
+  const commentText = `Пользователь ${userName} изменил статус задачи на: "${newStatus}".`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId: taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+  };
+
   try {
     await updateTask(task);
+    await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: 'Status updated' };
+    return { success: `Task status updated to "${newStatus}" and comment logged.` };
   } catch (error) {
-    console.error('Update status error:', error);
-    return { error: 'Could not update status' };
+    console.error('Error updating task status and logging comment:', error);
+    return { error: 'Could not update task status or log comment.' };
   }
 }
+
 
 export async function fetchTaskPageData(taskId: string) {
   try {
@@ -174,3 +195,4 @@ export async function fetchNewTaskPageData() {
     return { success: false, error: "Failed to load data for new task form." };
   }
 }
+

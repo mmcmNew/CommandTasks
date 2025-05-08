@@ -47,7 +47,8 @@ export type TaskFormData = z.infer<typeof TaskSchema>;
 export const CommentSchema = z.object({
   text: z.string().min(1, { message: "Comment text cannot be empty." }),
   attachments: fileListSchema,
-  action: z.enum(["Требует доработки от заказчика", "Требует доработки от исполнителя"]).nullable().optional(),
+  // action field removed
 });
 
 export type CommentFormData = z.infer<typeof CommentSchema>;
+

@@ -43,10 +43,6 @@ export interface Task {
   attachments: TaskAttachment[];
 }
 
-export type CommentAction = 
-  | "Требует доработки от заказчика" 
-  | "Требует доработки от исполнителя";
-
 export interface CommentAttachment extends TaskAttachment {}
 
 export interface Comment {
@@ -56,7 +52,6 @@ export interface Comment {
   text: string;
   attachments: CommentAttachment[];
   timestamp: string; // ISO date string
-  action: CommentAction | null;
 }
 
 export interface SessionPayload { // For secure HTTP-only cookie session
@@ -72,3 +67,4 @@ export interface CurrentUser { // For localStorage, non-sensitive user details
   roleId: string;
   roleName: UserRoleName;
 }
+
