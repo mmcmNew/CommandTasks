@@ -2,7 +2,7 @@ import { getTasks, getUsers } from '@/lib/data';
 import TaskList from '@/components/tasks/task-list';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, Filter } from 'lucide-react';
+import { PlusCircle, Filter, ClipboardList } from 'lucide-react'; // Added ClipboardList here
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function DashboardPage() {
