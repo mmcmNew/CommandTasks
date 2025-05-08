@@ -120,14 +120,6 @@ export async function changeTaskStatusAndLog(
     return { error: 'Unauthorized. User ID is missing.' };
   }
 
-  // This action is for specific status changes that need explicit logging.
-  // General status changes might be handled differently (e.g., within acceptTaskProposal).
-  if (newStatus !== "Требует доработки от заказчика" && newStatus !== "Требует доработки от исполнителя") {
-    // For other status changes, direct update or other actions might be more appropriate.
-    // However, if a comment log is always desired, this check can be broadened or removed.
-     // return { error: 'Invalid status for this specific logging action.' };
-  }
-
   const task = await getTaskById(taskId);
   if (!task) {
     return { error: 'Task not found.' };
@@ -143,7 +135,7 @@ export async function changeTaskStatusAndLog(
   const newComment: Comment = {
     id: uuidv4(),
     taskId: taskId,
-    authorId: currentUserId, // System or user who initiated
+    authorId: currentUserId, 
     text: commentText,
     attachments: [],
     timestamp: new Date().toISOString(),
@@ -174,7 +166,6 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
     const allUsersList = await fetchAllUsersFromDb();
     const userRoles = await fetchUserRolesFromDb();
 
-    // Fetch and enrich task proposals
     const rawProposals = await fetchTaskProposalsFromDb(taskId);
     const enrichedProposals: EnrichedTaskProposal[] = rawProposals.map(proposal => {
       const executor = allUsersList.find(u => u.id === proposal.executorId);
@@ -193,7 +184,7 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
       comments, 
       users: allUsersList,
       taskProposals: enrichedProposals,
-      userRoles, // Pass roles for UI logic
+      userRoles, 
       currentUserRoleName: currentUser?.roleName
     };
   } catch (error) {
@@ -227,12 +218,13 @@ export async function submitTaskProposal(formData: FormData, currentUserId: stri
   const taskId = formData.get('taskId') as string;
   const rawFormData = {
     taskId,
-    proposedCost: formData.get('proposedCost') ? parseFloat(formData.get('cost') as string) : null,
+    proposedCost: formData.get('proposedCost') ? parseFloat(formData.get('proposedCost') as string) : null,
     proposedDueDate: formData.get('proposedDueDate') ? new Date(formData.get('proposedDueDate') as string) : null,
   };
 
   const validatedFields = TaskProposalSchema.safeParse(rawFormData);
   if (!validatedFields.success) {
+    console.error("Proposal validation error details:", validatedFields.error.flatten().fieldErrors);
     return { error: 'Invalid proposal data.', details: validatedFields.error.flatten().fieldErrors };
   }
 
@@ -299,14 +291,12 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
     return { error: 'Customer or Executor details not found.'};
   }
 
-  // Update task details
   task.executorId = proposal.executorId;
   task.cost = proposal.proposedCost;
   task.dueDate = proposal.proposedDueDate;
   const oldStatus = task.status;
-  task.status = 'В работе'; // Or another appropriate status
-
-  // Log the assignment and status change as a comment
+  task.status = 'В работе'; 
+  
   const commentText = `Заказчик ${customer.name} назначил исполнителя ${executor.name} для задачи. ` +
                       `Условия: стоимость - ${proposal.proposedCost !== null ? `$${proposal.proposedCost.toLocaleString()}` : 'N/A'}, ` +
                       `срок - ${proposal.proposedDueDate ? new Date(proposal.proposedDueDate).toLocaleDateString() : 'N/A'}. ` +
@@ -315,7 +305,7 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
   const assignmentComment: Comment = {
     id: uuidv4(),
     taskId: task.id,
-    authorId: currentUserId, // Customer is making the assignment
+    authorId: currentUserId, 
     text: commentText,
     attachments: [],
     timestamp: new Date().toISOString(),
@@ -325,9 +315,10 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
     await updateTask(task);
     await addComment(assignmentComment);
     
-    // Remove this accepted proposal and other proposals for this task
-    await deleteTaskProposalById(proposalId); // Delete the accepted one so it doesn't show again
-    await deleteTaskProposalsByTaskId(task.id); // Delete other pending proposals for this task
+    // Keep the accepted proposal for record-keeping, but remove other proposals for this task
+    // No, on accept, delete all proposals for this task, including the accepted one
+    // as its details are now part of the task.
+    await deleteTaskProposalsByTaskId(task.id);
 
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${task.id}`);
