@@ -1,15 +1,28 @@
-import { getSession } from '@/lib/session';
-import { redirect } from 'next/navigation';
+'use client';
 
-export default async function HomePage() {
-  const session = await getSession();
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
+import { Loader2 } from 'lucide-react';
 
-  if (session) {
-    redirect('/dashboard');
-  } else {
-    redirect('/login');
-  }
+export default function HomePage() {
+  const { currentUser, isLoading } = useAuth();
+  const router = useRouter();
 
-  // This return is technically unreachable due to redirects but required by Next.js
-  return null; 
+  useEffect(() => {
+    if (!isLoading) {
+      if (currentUser) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/login');
+      }
+    }
+  }, [currentUser, isLoading, router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <p className="ml-4 text-lg text-muted-foreground">Loading TaskFlow...</p>
+    </div>
+  );
 }

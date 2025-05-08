@@ -1,37 +1,81 @@
+'use client';
+
 import { getTaskDetails } from '@/lib/actions/task.actions';
 import { getCommentsByTaskId, getUsers } from '@/lib/data';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
-import { notFound, redirect } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, DollarSign, User, Briefcase, Paperclip, Edit3 } from 'lucide-react';
+import { CalendarDays, DollarSign, User, Briefcase, Paperclip, Edit3, FileText, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { getSession } from '@/lib/session';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-// Placeholder for TaskStatusUpdater component
-// import TaskStatusUpdater from '@/components/tasks/task-status-updater';
+import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
+import type { Comment as CommentType, User as UserType, Task as TaskType } from '@/types';
 
-interface TaskDetailPageProps {
-  params: { taskId: string };
+// Define a more specific type for the enriched task details
+interface EnrichedTaskDetails extends TaskType {
+  authorName: string;
+  customerName: string;
+  executorName: string;
 }
 
-export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
-  const session = await getSession();
-  if (!session) {
-    redirect('/login');
-  }
 
-  const taskDetails = await getTaskDetails(params.taskId);
-
-  if (!taskDetails) {
-    notFound();
-  }
+export default function TaskDetailPage() {
+  const params = useParams();
+  const taskId = params.taskId as string;
   
-  const comments = await getCommentsByTaskId(params.taskId);
-  const users = await getUsers();
+  const { currentUser, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  const [taskDetails, setTaskDetails] = useState<EnrichedTaskDetails | null>(null);
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth state to resolve
+
+    if (!currentUser) {
+      router.replace('/login'); // Should be handled by layout, but as a fallback
+      return;
+    }
+
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [taskData, commentsData, usersData] = await Promise.all([
+          getTaskDetails(taskId),
+          getCommentsByTaskId(taskId),
+          getUsers()
+        ]);
+
+        if (!taskData) {
+          notFound(); // Or handle as an error state
+          return;
+        }
+        
+        setTaskDetails(taskData as EnrichedTaskDetails); // Cast if confident about structure
+        setComments(commentsData);
+        setUsers(usersData);
+
+      } catch (error) {
+        console.error("Failed to fetch task details:", error);
+        // Optionally set an error state to display to the user
+        notFound(); // Or a more specific error display
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (taskId && currentUser) {
+      fetchData();
+    }
+  }, [taskId, currentUser, authLoading, router]);
+
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -41,6 +85,26 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       return 'Invalid Date';
     }
   };
+
+  if (loading || authLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-muted-foreground">Loading task details...</p>
+      </div>
+    );
+  }
+
+  if (!taskDetails) {
+    // This case implies notFound() was called or data fetch failed significantly
+    // Handled by notFound() redirect or can show a message here if preferred
+    return <div className="text-center py-10">Task not found or could not be loaded.</div>;
+  }
+  
+  if (!currentUser) {
+    // Should be caught by layout or early useEffect, but as safety.
+    return <div className="text-center py-10">Redirecting to login...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -53,9 +117,6 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             </div>
             <div className="flex flex-col items-end gap-2">
               <TaskStatusBadge status={taskDetails.status} className="px-3 py-1 text-sm"/>
-              {/* Placeholder for status updater. Implement if needed.
-              <TaskStatusUpdater taskId={taskDetails.id} currentStatus={taskDetails.status} /> 
-              */}
             </div>
           </div>
         </CardHeader>
@@ -126,13 +187,14 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
           )}
         </CardContent>
         <CardFooter>
+            {/* Edit button could be re-enabled with appropriate logic */}
             {/* <Button variant="outline">
                 <Edit3 className="mr-2 h-4 w-4" /> Edit Task
             </Button> */}
         </CardFooter>
       </Card>
-
-      <CommentSection taskId={taskDetails.id} comments={comments} users={users} currentUserId={session.userId} />
+      {/* CommentSection will use AuthContext for currentUserId */}
+      <CommentSection taskId={taskDetails.id} comments={comments} users={users} />
     </div>
   );
 }

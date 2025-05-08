@@ -11,41 +11,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { logoutUser } from '@/lib/actions/auth.actions';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { CurrentUser } from '@/types';
+import { useAuth } from '@/context/auth-context';
 
 
 export function UserNav() {
   const { toast } = useToast();
-  const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const userData: CurrentUser = JSON.parse(storedUser);
-        setCurrentUser(userData);
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
-        localStorage.removeItem('currentUser'); 
-      }
-    }
-  }, []);
-
+  const { currentUser, logout: contextLogout } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await logoutUser(); 
-      localStorage.removeItem('currentUser'); 
-      setCurrentUser(null);
+      await contextLogout(); // This handles both server and client logout
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/login'); 
-      router.refresh(); // Ensure layout updates
+      // Navigation is handled by contextLogout
     } catch (error) {
       toast({ title: 'Logout Failed', description: 'Could not log out. Please try again.', variant: 'destructive' });
     }
@@ -55,6 +34,12 @@ export function UserNav() {
   const userEmail = currentUser?.email;
   const userRoleName = currentUser?.roleName;
 
+
+  if (!currentUser) {
+    // Should not happen if UserNav is only shown for logged-in users,
+    // but good for robustness if layout logic changes.
+    return null; 
+  }
 
   return (
     <DropdownMenu>

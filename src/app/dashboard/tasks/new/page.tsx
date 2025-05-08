@@ -1,34 +1,73 @@
+'use client';
+
 import TaskForm from '@/components/tasks/task-form';
 import { getUsers, getUserRoles } from '@/lib/data';
-import { getSession } from '@/lib/session';
-import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardEdit } from 'lucide-react';
-import type { UserRoleObject, UserRoleName } from '@/types';
+import { ClipboardEdit, Loader2 } from 'lucide-react';
+import type { UserRoleObject, UserRoleName, User } from '@/types';
+import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
 
-export default async function NewTaskPage() {
-  const session = await getSession();
-  if (!session) {
-    redirect('/login');
+export default function NewTaskPage() {
+  const { currentUser, isLoading: authLoading } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [potentialExecutors, setPotentialExecutors] = useState<User[]>([]);
+  const [potentialCustomers, setPotentialCustomers] = useState<User[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!currentUser) return; // Ensure currentUser is available
+      try {
+        setDataLoading(true);
+        const [fetchedUsers, fetchedUserRoles] = await Promise.all([
+          getUsers(),
+          getUserRoles()
+        ]);
+        setUsers(fetchedUsers);
+        setUserRoles(fetchedUserRoles);
+
+        const executorRoleName: UserRoleName = 'исполнитель';
+        const executorRole = fetchedUserRoles.find(role => role.name === executorRoleName);
+        
+        setPotentialExecutors(executorRole 
+          ? fetchedUsers.filter(user => user.roleId === executorRole.id)
+          : []);
+        
+        // Simpler: all users can be customers
+        setPotentialCustomers(fetchedUsers);
+
+      } catch (error) {
+        console.error("Failed to load data for new task page:", error);
+        // Handle error (e.g., show toast)
+      } finally {
+        setDataLoading(false);
+      }
+    }
+    if (!authLoading && currentUser) {
+        loadData();
+    }
+  }, [authLoading, currentUser]);
+
+  if (authLoading || dataLoading) {
+    return (
+      <div className="max-w-3xl mx-auto flex items-center justify-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading task form...</p>
+      </div>
+    );
   }
-
-  const users = await getUsers();
-  const userRoles = await getUserRoles();
   
-  const executorRoleName: UserRoleName = 'исполнитель';
-  const executorRole = userRoles.find(role => role.name === executorRoleName);
-  
-  const potentialExecutors = executorRole 
-    ? users.filter(user => user.roleId === executorRole.id)
-    : []; // If "исполнитель" role not found, no executors
-
-  // For customers, we can assume any user can be a customer for now,
-  // or apply specific logic if needed, similar to executors.
-  // const customerRoleName: UserRoleName = 'заказчик';
-  // const customerRole = userRoles.find(role => role.name === customerRoleName);
-  // const potentialCustomers = customerRole ? users.filter(user => user.roleId === customerRole.id) : users;
-  const potentialCustomers = users; // Simpler: all users can be customers
-
+  if (!currentUser) {
+      // This case should ideally be handled by the DashboardLayout redirecting.
+      // Adding it here for robustness.
+      return (
+        <div className="max-w-3xl mx-auto flex items-center justify-center py-10">
+          <p>Please log in to create a task.</p>
+        </div>
+      );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -41,10 +80,10 @@ export default async function NewTaskPage() {
         </CardHeader>
         <CardContent>
           <TaskForm 
-            users={users} // Pass all users for selection lists
+            users={users} 
             potentialCustomers={potentialCustomers}
             potentialExecutors={potentialExecutors}
-            currentUserId={session.userId} 
+            // currentUserId is no longer passed as a prop; TaskForm uses AuthContext
           />
         </CardContent>
       </Card>

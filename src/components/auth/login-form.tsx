@@ -9,19 +9,18 @@ import { loginUser } from '@/lib/actions/auth.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState } from 'react';
 import { LogIn } from 'lucide-react';
-import type { CurrentUser } from '@/types';
+import { useAuth } from '@/context/auth-context';
 
 
 export default function LoginForm() {
   const { toast } = useToast();
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { login: contextLogin } = useAuth(); // Get login function from AuthContext
+  const [isPending, startTransition] = useTransition(); // startTransition not actively used for navigation here
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormData>({
@@ -36,26 +35,17 @@ export default function LoginForm() {
     console.log("onSubmit: Form submission started");
     setIsLoading(true);
     try {
-      console.log("onSubmit: Calling loginUser");
+      console.log("onSubmit: Calling loginUser server action");
       const result = await loginUser(data);
-      console.log("onSubmit: loginUser result:", result);
+      console.log("onSubmit: loginUser server action result:", result);
 
       if (result.success && result.user) {
-        console.log("onSubmit: Login successful. Storing user data and redirecting...");
+        console.log("onSubmit: Login successful via server. Calling context login.");
+        contextLogin(result.user); // This will handle localStorage and navigation
         toast({
           title: 'Login Successful',
         });
-        
-        // Store user details (including roleId and roleName) in localStorage
-        localStorage.setItem('currentUser', JSON.stringify(result.user));
-        
-        startTransition(() => {
-          // Session is already created by the loginUser server action.
-          // No need to call createSession here.
-          router.push('/dashboard');
-          router.refresh(); // Helps ensure the layout and session state are updated
-        });
-
+        // Navigation is handled by contextLogin
       } else {
         toast({
           title: 'Login Failed',
@@ -64,7 +54,7 @@ export default function LoginForm() {
         });
       }
     } catch (error) {
-        console.error("onSubmit: Error during login:", error);
+        console.error("onSubmit: Error during login process:", error);
       toast({
         title: 'Login Error',
         description: 'An unexpected error occurred. Please try again.',

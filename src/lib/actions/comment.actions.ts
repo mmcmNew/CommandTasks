@@ -2,21 +2,20 @@
 import type { CommentFormData } from '@/lib/schema';
 import { CommentSchema } from '@/lib/schema';
 import { addComment, saveFile } from '@/lib/data';
-import { getSession } from '@/lib/session';
+// import { getSession } from '@/lib/session'; // No longer using server session
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
 import type { Comment, CommentAction, CommentAttachment } from '@/types';
 
-export async function addCommentToTask(formData: FormData) {
-  const session = await getSession();
-  if (!session) {
-    return { error: 'Unauthorized. Please log in.' };
+export async function addCommentToTask(formData: FormData, currentUserId: string) { // Added currentUserId parameter
+  if (!currentUserId) {
+    return { error: 'Unauthorized. User ID is missing.' };
   }
 
   const taskId = formData.get('taskId') as string;
-  const authorId = formData.get('authorId') as string; // Should match session.userId
+  const authorIdFromForm = formData.get('authorId') as string; // This should match currentUserId passed as param
   
-  if (authorId !== session.userId) {
+  if (authorIdFromForm !== currentUserId) {
     return { error: 'User mismatch. Action forbidden.' };
   }
 
@@ -26,7 +25,6 @@ export async function addCommentToTask(formData: FormData) {
     action: formData.get('action') as CommentAction | null,
   };
 
-  // Filter out empty file inputs
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
 
   const validatedFields = CommentSchema.safeParse(rawFormData);
@@ -56,7 +54,7 @@ export async function addCommentToTask(formData: FormData) {
   const newComment: Comment = {
     id: newCommentId,
     taskId,
-    authorId,
+    authorId: currentUserId, // Use the verified currentUserId
     text,
     attachments: uploadedAttachments,
     timestamp: new Date().toISOString(),
@@ -65,7 +63,7 @@ export async function addCommentToTask(formData: FormData) {
 
   try {
     await addComment(newComment);
-    revalidatePath(`/dashboard/tasks/${taskId}`); // Revalidate the task detail page
+    revalidatePath(`/dashboard/tasks/${taskId}`);
     return { success: 'Comment added successfully.' };
   } catch (error) {
     console.error('Add comment error:', error);

@@ -1,8 +1,7 @@
 'use server';
 import { z } from 'zod';
 import { RegisterSchema, LoginSchema, type RegisterFormData, type LoginFormData } from '@/lib/schema';
-import { getUserByEmail, addUser, getUserRoles } from '@/lib/data'; // Added getUserRoles
-import { createSession, deleteSession } from '@/lib/session';
+import { getUserByEmail, addUser } from '@/lib/data';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import type { CurrentUser } from '@/types';
@@ -34,11 +33,11 @@ export async function registerUser(formData: RegisterFormData) {
     name,
     email,
     passwordHash,
-    roleId, // Save roleId
+    roleId,
   };
 
   try {
-    // @ts-ignore // User type expects roleId which is provided
+    // @ts-ignore User type expects roleId which is provided
     await addUser(newUser);
     return { success: 'Registration successful! Please log in.' };
   } catch (error) {
@@ -73,27 +72,22 @@ export async function loginUser(formData: LoginFormData): Promise<LoginUserResul
   }
   console.log('loginUser: Password matches');
 
-  try {
-    console.log('loginUser: Attempting to create session with roleId:', user.roleId);
-    await createSession(user.id, user.roleId); // Pass roleId to createSession
-    console.log('loginUser: Session creation attempt finished in auth.actions');
-    
-    return { 
-      success: 'Login successful!', 
-      user: { 
-        id: user.id, 
-        name: user.name, 
-        email: user.email, 
-        roleId: user.roleId, 
-        roleName: user.roleName // roleName is from the enhanced getUserByEmail
-      } 
-    };
-  } catch (error) {
-    console.error('loginUser: Error during createSession call or subsequent logic:', error);
-    return { error: 'Could not log in.' };
-  }
+  // Server no longer creates session cookie directly. Client will handle localStorage.
+  return { 
+    success: 'Login successful!', 
+    user: { 
+      id: user.id, 
+      name: user.name, 
+      email: user.email, 
+      roleId: user.roleId, 
+      roleName: user.roleName // roleName is from the enhanced getUserByEmail
+    } 
+  };
 }
 
 export async function logoutUser() {
-  await deleteSession();
+  // This function can be used for any server-side cleanup during logout if needed.
+  // For localStorage based auth, primary logout (clearing storage) happens client-side.
+  console.log('logoutUser: Server-side logout signal received.');
+  // No cookie deletion needed here as we're moving away from cookies.
 }

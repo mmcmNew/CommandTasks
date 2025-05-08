@@ -1,39 +1,16 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getSession, updateSession } from '@/lib/session';
 
-const protectedRoutes = ['/dashboard']; // Add more routes as needed
-const authRoutes = ['/login', '/register'];
+// Middleware can no longer reliably check auth status if using localStorage for session.
+// Client-side checks (e.g., in AuthProvider or specific page components) will handle redirects
+// for protected routes and auth routes (like redirecting logged-in users from /login).
 
 export async function middleware(request: NextRequest) {  
-  console.log('Running middleware');
-  const session = await getSession();
-  console.log('Session:', session);
-
-  const { pathname } = request.nextUrl;
-
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-  const isAuthRoute = authRoutes.includes(pathname);
-  console.log('Is protected route:', isProtectedRoute);
-  console.log('Is auth route:', isAuthRoute);
-
-  if (isAuthRoute) {
-    if (session) {
-      // If user is logged in and tries to access login/register, redirect to dashboard
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    return NextResponse.next();
-  }
-
-  if (isProtectedRoute) {
-    if (!session) {
-      // If user is not logged in and tries to access a protected route, redirect to login
-      return NextResponse.redirect(new URL('/login', request.url));
-      console.log('Redirecting to login from protected route');
-    }
-    // If session exists, update it to extend its lifetime (optional, good for active users)
-    // await updateSession(); 
-  }
+  // The primary auth logic is now client-side.
+  // This middleware can be used for other purposes like internationalization,
+  // A/B testing, or basic path rewriting not related to auth state from localStorage.
+  
+  // console.log('Middleware running for path:', request.nextUrl.pathname);
   
   return NextResponse.next();
 }
@@ -51,4 +28,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|uploads).*)',
   ],
 };
-

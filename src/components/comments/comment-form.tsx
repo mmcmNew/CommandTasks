@@ -14,18 +14,20 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useState } from 'react';
 import { Send, Loader2, Paperclip, AlertTriangle } from 'lucide-react';
 import type { CommentAction } from '@/types';
+import { useAuth } from '@/context/auth-context';
 
 
 interface CommentFormProps {
   taskId: string;
-  currentUserId: string;
+  // currentUserId prop removed, will be taken from context
 }
 
 const COMMENT_ACTIONS: CommentAction[] = ["Требует доработки от заказчика", "Требует доработки от исполнителя"];
 
-export default function CommentForm({ taskId, currentUserId }: CommentFormProps) {
+export default function CommentForm({ taskId }: CommentFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { currentUser } = useAuth();
 
   const form = useForm<CommentFormData>({
     resolver: zodResolver(CommentSchema),
@@ -37,6 +39,11 @@ export default function CommentForm({ taskId, currentUserId }: CommentFormProps)
   });
 
   async function onSubmit(data: CommentFormData) {
+    if (!currentUser?.id) {
+      toast({ title: 'Authentication Error', description: 'User not found. Please log in.', variant: 'destructive' });
+      return;
+    }
+
     setIsLoading(true);
     const formData = new FormData();
     formData.append('text', data.text);
@@ -49,10 +56,11 @@ export default function CommentForm({ taskId, currentUserId }: CommentFormProps)
       });
     }
     formData.append('taskId', taskId);
-    formData.append('authorId', currentUserId);
+    formData.append('authorId', currentUser.id); // authorId in FormData is for validation, actual authorId for action is passed as param
 
     try {
-      const result = await addCommentToTask(formData);
+      // Pass currentUser.id as the currentUserId to the server action
+      const result = await addCommentToTask(formData, currentUser.id);
       if (result?.error) {
         toast({
           title: 'Failed to add comment',
@@ -64,7 +72,7 @@ export default function CommentForm({ taskId, currentUserId }: CommentFormProps)
           title: 'Comment Added',
           description: 'Your comment has been successfully posted.',
         });
-        form.reset(); // Reset form after successful submission
+        form.reset(); 
       }
     } catch (error) {
       toast({
@@ -141,7 +149,7 @@ export default function CommentForm({ taskId, currentUserId }: CommentFormProps)
             />
         </div>
         
-        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto shadow-md">
+        <Button type="submit" disabled={isLoading || !currentUser} className="w-full sm:w-auto shadow-md">
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
           Post Comment
         </Button>

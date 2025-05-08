@@ -8,10 +8,10 @@ interface CommentSectionProps {
   taskId: string;
   comments: CommentType[];
   users: User[];
-  currentUserId: string;
+  // currentUserId prop removed, CommentForm will use AuthContext
 }
 
-export default function CommentSection({ taskId, comments, users, currentUserId }: CommentSectionProps) {
+export default function CommentSection({ taskId, comments, users }: CommentSectionProps) {
   return (
     <Card className="shadow-xl">
       <CardHeader>
@@ -32,7 +32,8 @@ export default function CommentSection({ taskId, comments, users, currentUserId 
             ))}
           </div>
         )}
-        <CommentForm taskId={taskId} currentUserId={currentUserId} />
+        {/* CommentForm no longer needs currentUserId prop */}
+        <CommentForm taskId={taskId} />
       </CardContent>
     </Card>
   );

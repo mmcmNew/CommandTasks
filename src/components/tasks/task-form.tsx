@@ -20,19 +20,21 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useState }  from 'react';
+import { useAuth } from '@/context/auth-context';
 
 interface TaskFormProps {
   task?: Task; // For editing
-  users: User[]; // All users, for general reference or if filtering is done here
-  potentialCustomers: User[]; // Pre-filtered customers
-  potentialExecutors: User[]; // Pre-filtered executors
-  currentUserId: string;
+  users: User[]; 
+  potentialCustomers: User[]; 
+  potentialExecutors: User[];
+  // currentUserId prop removed, will be taken from context
 }
 
-export default function TaskForm({ task, users, potentialCustomers, potentialExecutors, currentUserId }: TaskFormProps) {
+export default function TaskForm({ task, users, potentialCustomers, potentialExecutors }: TaskFormProps) {
   const { toast } = useToast();
-  const router = useRouter();
+  const router = useRouter(); // router might not be needed if redirect is handled by server action
   const [isLoading, setIsLoading] = useState(false);
+  const { currentUser } = useAuth();
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(TaskSchema),
@@ -42,14 +44,17 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
       status: task?.status || TASK_STATUSES[0],
       dueDate: task?.dueDate ? new Date(task.dueDate) : null,
       cost: task?.cost || null,
-      customerId: task?.customerId || currentUserId, 
+      customerId: task?.customerId || currentUser?.id || '', // Default to current user if creating
       executorId: task?.executorId || null,
       attachments: [],
     },
   });
   
-
   async function onSubmit(data: TaskFormData) {
+    if (!currentUser?.id) {
+      toast({ title: 'Authentication Error', description: 'User not found. Please log in.', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
@@ -64,10 +69,12 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
       }
     });
 
-    formData.append('authorId', currentUserId);
+    // authorId is now passed as a separate argument to createTask
+    // formData.append('authorId', currentUser.id); // No longer needed in FormData
 
     try {
-      const result = await createTask(formData); 
+      // Pass currentUser.id as the authorId to the server action
+      const result = await createTask(formData, currentUser.id); 
       if (result?.error) {
         toast({
           title: task ? 'Failed to update task' : 'Failed to create task',
@@ -79,7 +86,8 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           title: task ? 'Task Updated' : 'Task Created',
           description: `Task "${data.title}" has been successfully ${task ? 'updated' : 'created'}.`,
         });
-        // Redirect is handled by server action in createTask
+        // Redirect is handled by server action in createTask, so no client-side router.push needed for creation.
+        // For updates, you might want to navigate or revalidate differently.
       }
     } catch (error) {
       toast({
@@ -275,7 +283,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           )}
         />
         
-        <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={isLoading || !currentUser}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {task ? 'Update Task' : 'Create Task'}
         </Button>
