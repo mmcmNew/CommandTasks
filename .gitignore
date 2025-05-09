@@ -9,6 +9,9 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.vscode
+.idx
+/public
 
 # testing
 /coverage
