@@ -16,11 +16,20 @@ import { useState } from 'react';
 import { LogIn } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
+interface LoginFormProps {
+  title?: string;
+  description?: string;
+  showRegisterLink?: boolean;
+}
 
-export default function LoginForm() {
+export default function LoginForm({ 
+  title = "Login to TaskFlow", 
+  description = "Enter your credentials to access your account.",
+  showRegisterLink = true,
+}: LoginFormProps) {
   const { toast } = useToast();
-  const { login: contextLogin } = useAuth(); // Get login function from AuthContext
-  const [isPending, startTransition] = useTransition(); // startTransition not actively used for navigation here
+  const { login: contextLogin } = useAuth();
+  const [isPending, startTransition] = useTransition(); 
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormData>({
@@ -32,20 +41,15 @@ export default function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormData) {
-    console.log("onSubmit: Form submission started");
     setIsLoading(true);
     try {
-      console.log("onSubmit: Calling loginUser server action");
       const result = await loginUser(data);
-      console.log("onSubmit: loginUser server action result:", result);
 
       if (result.success && result.user) {
-        console.log("onSubmit: Login successful via server. Calling context login.");
-        contextLogin(result.user); // This will handle localStorage and navigation
+        contextLogin(result.user); 
         toast({
           title: 'Login Successful',
         });
-        // Navigation is handled by contextLogin
       } else {
         toast({
           title: 'Login Failed',
@@ -54,7 +58,6 @@ export default function LoginForm() {
         });
       }
     } catch (error) {
-        console.error("onSubmit: Error during login process:", error);
       toast({
         title: 'Login Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -69,9 +72,9 @@ export default function LoginForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-bold flex items-center gap-2">
-          <LogIn className="w-6 h-6 text-primary" /> Login to TaskFlow
+          <LogIn className="w-6 h-6 text-primary" /> {title}
         </CardTitle>
-        <CardDescription>Enter your credentials to access your account.</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -107,12 +110,14 @@ export default function LoginForm() {
             <Button type="submit" className="w-full" disabled={isLoading || isPending}>
               {isLoading || isPending ? 'Logging in...' : 'Login'}
             </Button>
-            <p className="text-sm text-center text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="font-medium text-primary hover:underline">
-                Register here
-              </Link>
-            </p>
+            {showRegisterLink && (
+              <p className="text-sm text-center text-muted-foreground">
+                Don&apos;t have an account?{' '}
+                <Link href="/register" className="font-medium text-primary hover:underline">
+                  Register here
+                </Link>
+              </p>
+            )}
           </CardFooter>
         </form>
       </Form>

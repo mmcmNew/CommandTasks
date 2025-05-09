@@ -40,31 +40,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback((userData: CurrentUser) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
     setCurrentUser(userData);
+    // Redirect to dashboard for all users, including admins.
+    // Specific admin dashboard redirection can be handled here if needed in future.
     router.push('/dashboard');
   }, [router]);
 
   const logout = useCallback(async () => {
     try {
-      await serverLogoutUser(); // Call server action for any backend cleanup
+      await serverLogoutUser(); 
     } catch (error) {
       console.error("Server logout failed:", error);
-      // Continue with client-side logout regardless
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setCurrentUser(null);
+    // Redirect to general login page after logout.
+    // If on an admin-specific page, this ensures they are out.
     router.push('/login');
   }, [router]);
 
   // Redirect logic
   useEffect(() => {
     if (!isLoading) {
-      const isAuthRoute = pathname === '/login' || pathname === '/register';
-      const isProtectedRoute = pathname.startsWith('/dashboard');
+      const isAuthRoute = pathname === '/login' || pathname === '/register' || pathname === '/admin/login';
+      const isProtectedRoute = pathname.startsWith('/dashboard'); // This covers all dashboard/* routes
 
       if (isAuthRoute && currentUser) {
-        router.push('/dashboard');
+        // If user is on any auth page (login, register, admin/login) and already logged in,
+        // redirect them to the main dashboard.
+        router.replace('/dashboard');
       } else if (isProtectedRoute && !currentUser) {
-        router.push('/login');
+        // If user tries to access a protected dashboard route and is not logged in,
+        // redirect them to the main login page.
+        // Admin-specific protected routes could redirect to /admin/login here if desired.
+        router.replace('/login');
       }
     }
   }, [currentUser, isLoading, pathname, router]);
