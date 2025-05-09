@@ -389,7 +389,10 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
   const task = await getTaskById(taskId);
   if (!task) return { error: 'Task not found.' };
   if (task.customerId !== currentUserId) return { error: 'Only the customer can accept this task.' };
-  if (task.status !== 'Ожидает проверку') return { error: `Task cannot be accepted from status: ${task.status}. It should be "Ожидает проверку".` };
+  
+  if (task.status !== 'Ожидает проверку' && task.status !== 'Доработано исполнителем') {
+     return { error: `Task cannot be accepted from status: ${task.status}. It should be "Ожидает проверку" or "Доработано исполнителем".` };
+  }
   
   const user = await getUserById(currentUserId);
   const userName = user ? user.name : 'Заказчик';
@@ -464,7 +467,10 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
   }
 }
 
-// Customer accepts executor's rework/info
+// Customer accepts executor's rework/info - THIS FUNCTION IS NO LONGER USED.
+// Its functionality is merged into acceptCompletedTaskByCustomerAction if the user decides to complete the task.
+// If the customer wants to send it back for *more* rework, they will use the comment form to change status.
+/*
 export async function acceptExecutorReworkByCustomerAction(taskId: string, currentUserId: string) {
   if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
 
@@ -475,7 +481,7 @@ export async function acceptExecutorReworkByCustomerAction(taskId: string, curre
   const user = await getUserById(currentUserId);
   const userName = user ? user.name : 'Заказчик';
   const oldStatus = task.status;
-  const newStatus: TaskStatus = 'В работе';
+  const newStatus: TaskStatus = 'В работе'; // Original: 'В работе'. User request implies 'Завершено' now.
 
   if (oldStatus !== 'Доработано исполнителем') {
      return { error: `Rework cannot be accepted from status: ${oldStatus}. It should be "Доработано исполнителем".` };
@@ -504,6 +510,7 @@ export async function acceptExecutorReworkByCustomerAction(taskId: string, curre
     return { error: 'Could not accept executor rework.' };
   }
 }
+*/
 
 
 export async function getCompletedTasksAction() {
@@ -517,5 +524,6 @@ export async function getCompletedTasksAction() {
     return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
+
 
 
