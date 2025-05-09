@@ -14,16 +14,21 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
 
   const taskId = formData.get('taskId') as string;
   const authorIdFromForm = formData.get('authorId') as string; 
-  const newStatusToSetFromForm = formData.get('newStatusToSet') as TaskStatus | undefined | "none";
   
   if (authorIdFromForm !== currentUserId) {
     return { error: 'User mismatch. Action forbidden.' };
   }
+  
+  const newStatusToSetFromFormValue = formData.get('newStatusToSet'); // string | File | null
 
   const rawFormData = {
     text: formData.get('text') as string,
     attachments: formData.getAll('attachments') as File[],
-    newStatusToSet: newStatusToSetFromForm === "none" ? undefined : newStatusToSetFromForm,
+    // If newStatusToSetFromFormValue is null (field not in FormData), treat as undefined for optional schema.
+    // Otherwise, pass the value (which could be "none" or a TaskStatus) to the schema.
+    newStatusToSet: newStatusToSetFromFormValue === null 
+                      ? undefined 
+                      : newStatusToSetFromFormValue as TaskStatus | "none",
   };
 
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
@@ -87,7 +92,6 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
         if ((task.status === "В работе" || task.status === "Доработано") && task.executorId === currentUserId) authorizedToChange = true;
       } else {
         // For other statuses, rely on dedicated actions if any, or specific logic.
-        // For now, only the above are managed via comment form.
       }
 
 
@@ -120,4 +124,3 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'Could not add comment or update status.' };
   }
 }
-

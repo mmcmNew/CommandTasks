@@ -1,6 +1,7 @@
 
 import { z } from 'zod';
 import { TASK_STATUSES } from './constants'; 
+import type { TaskStatus } from '@/types'; // Ensure TaskStatus is imported for the ZodEnum cast
 
 export const RegisterSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -26,9 +27,9 @@ const fileSchema = z.instanceof(File)
   .refine(
     (file) => ALLOWED_FILE_TYPES.includes(file.type),
     "Only .jpg, .png, and .pdf files are accepted."
-  ).optional();
+  ); // Removed .optional() here
   
-const fileListSchema = z.array(fileSchema).optional();
+const fileListSchema = z.array(fileSchema).optional(); // The array of files is optional
 
 
 export const TaskSchema = z.object({
@@ -48,7 +49,8 @@ export type TaskFormData = z.infer<typeof TaskSchema>;
 export const CommentSchema = z.object({
   text: z.string().min(1, { message: "Comment text cannot be empty." }),
   attachments: fileListSchema,
-  newStatusToSet: z.enum([...TASK_STATUSES, "none"] as [TaskStatus | "none", ...(TaskStatus | "none")[]]).optional()
+  newStatusToSet: z.enum([...TASK_STATUSES, "none"] as [TaskStatus | "none", ...(TaskStatus | "none")[]])
+    .optional()
     .transform(val => val === "none" ? undefined : val) as z.ZodOptional<z.ZodEnum<typeof TASK_STATUSES>>,
 });
 
@@ -60,7 +62,7 @@ export const TaskProposalSchema = z.object({
   proposedDueDate: z.date().nullable().optional(),
 }).refine(data => data.proposedCost !== null || data.proposedDueDate !== null, {
   message: "Either proposed cost or proposed due date must be provided.",
-  path: ["proposedCost"], // You can point to one field or a general error
+  path: ["proposedCost"], 
 });
 
 export type TaskProposalFormData = z.infer<typeof TaskProposalSchema>;
