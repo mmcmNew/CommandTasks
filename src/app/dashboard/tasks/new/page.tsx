@@ -1,11 +1,11 @@
+
 'use client';
 
 import TaskForm from '@/components/tasks/task-form';
-// import { getUsers, getUserRoles } from '@/lib/data'; // Removed direct imports
-import { fetchNewTaskPageData } from '@/lib/actions/task.actions'; // Added server action import
+import { fetchNewTaskPageData } from '@/lib/actions/task.actions'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardEdit, Loader2 } from 'lucide-react';
-import type { UserRoleObject, UserRoleName, User } from '@/types';
+import type { UserRoleObject, UserRoleName, User, TaskCategory } from '@/types'; // Added TaskCategory
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
 
@@ -13,28 +13,27 @@ export default function NewTaskPage() {
   const { currentUser, isLoading: authLoading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
+  const [taskCategories, setTaskCategories] = useState<TaskCategory[]>([]); // Added state for categories
   const [dataLoading, setDataLoading] = useState(true);
   const [potentialExecutors, setPotentialExecutors] = useState<User[]>([]);
   const [potentialCustomers, setPotentialCustomers] = useState<User[]>([]);
 
   useEffect(() => {
     async function loadData() {
-      if (!currentUser) return; // Ensure currentUser is available
+      if (!currentUser) return; 
       try {
         setDataLoading(true);
-        // const [fetchedUsers, fetchedUserRoles] = await Promise.all([
-        //   getUsers(), // Old way
-        //   getUserRoles() // Old way
-        // ]);
         
-        const result = await fetchNewTaskPageData(); // New server action call
+        const result = await fetchNewTaskPageData(); 
 
-        if (result.success && result.users && result.userRoles) {
+        if (result.success && result.users && result.userRoles && result.taskCategories) { // Check for taskCategories
           const fetchedUsers = result.users;
           const fetchedUserRoles = result.userRoles;
+          const fetchedTaskCategories = result.taskCategories; // Get categories
 
           setUsers(fetchedUsers);
           setUserRoles(fetchedUserRoles);
+          setTaskCategories(fetchedTaskCategories); // Set categories
 
           const executorRoleName: UserRoleName = 'исполнитель';
           const executorRole = fetchedUserRoles.find(role => role.name === executorRoleName);
@@ -46,12 +45,10 @@ export default function NewTaskPage() {
           setPotentialCustomers(fetchedUsers);
         } else {
           console.error("Failed to load data for new task page:", result.error);
-          // Handle error (e.g., show toast)
         }
 
       } catch (error) {
         console.error("Failed to load data for new task page:", error);
-        // Handle error (e.g., show toast)
       } finally {
         setDataLoading(false);
       }
@@ -92,6 +89,7 @@ export default function NewTaskPage() {
             users={users} 
             potentialCustomers={potentialCustomers}
             potentialExecutors={potentialExecutors}
+            taskCategories={taskCategories} // Pass categories
           />
         </CardContent>
       </Card>

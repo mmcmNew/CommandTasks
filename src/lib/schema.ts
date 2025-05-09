@@ -27,9 +27,9 @@ const fileSchema = z.instanceof(File)
   .refine(
     (file) => ALLOWED_FILE_TYPES.includes(file.type),
     "Only .jpg, .png, and .pdf files are accepted."
-  ); // Removed .optional() here
+  ); 
   
-const fileListSchema = z.array(fileSchema).optional(); // The array of files is optional
+const fileListSchema = z.array(fileSchema).optional(); 
 
 
 export const TaskSchema = z.object({
@@ -40,6 +40,7 @@ export const TaskSchema = z.object({
   cost: z.coerce.number().positive({ message: "Cost must be a positive number." }).nullable().optional(),
   customerId: z.string().uuid({ message: "Invalid customer ID." }),
   executorId: z.string().uuid({ message: "Invalid executor ID." }).nullable().optional(),
+  categoryId: z.string({ required_error: "Category is required." }).min(1, { message: "Category is required."}).nullable().optional(), // Added categoryId
   attachments: fileListSchema,
 });
 

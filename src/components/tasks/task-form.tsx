@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,10 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { TASK_STATUSES } from '@/lib/constants';
-import type { User, Task } from '@/types';
+import type { User, Task, TaskCategory } from '@/types'; // Added TaskCategory
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Tags } from 'lucide-react'; // Added Tags
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -23,18 +24,20 @@ import { useState }  from 'react';
 import { useAuth } from '@/context/auth-context';
 
 interface TaskFormProps {
-  task?: Task; // For editing
+  task?: Task; 
   users: User[]; 
   potentialCustomers: User[]; 
   potentialExecutors: User[];
-  // currentUserId prop removed, will be taken from context
+  taskCategories: TaskCategory[]; // Added taskCategories
 }
 
-export default function TaskForm({ task, users, potentialCustomers, potentialExecutors }: TaskFormProps) {
+export default function TaskForm({ task, users, potentialCustomers, potentialExecutors, taskCategories }: TaskFormProps) {
   const { toast } = useToast();
-  const router = useRouter(); // router might not be needed if redirect is handled by server action
+  const router = useRouter(); 
   const [isLoading, setIsLoading] = useState(false);
   const { currentUser } = useAuth();
+
+  const defaultCategoryId = taskCategories.find(cat => cat.name === "Прочее")?.id || (taskCategories.length > 0 ? taskCategories[0].id : null);
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(TaskSchema),
@@ -44,8 +47,9 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
       status: task?.status || TASK_STATUSES[0],
       dueDate: task?.dueDate ? new Date(task.dueDate) : null,
       cost: task?.cost || null,
-      customerId: task?.customerId || currentUser?.id || '', // Default to current user if creating
+      customerId: task?.customerId || currentUser?.id || '', 
       executorId: task?.executorId || null,
+      categoryId: task?.categoryId || defaultCategoryId, // Added categoryId
       attachments: [],
     },
   });
@@ -69,11 +73,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
       }
     });
 
-    // authorId is now passed as a separate argument to createTask
-    // formData.append('authorId', currentUser.id); // No longer needed in FormData
-
     try {
-      // Pass currentUser.id as the authorId to the server action
       const result = await createTask(formData, currentUser.id); 
       if (result?.error) {
         toast({
@@ -86,8 +86,6 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           title: task ? 'Task Updated' : 'Task Created',
           description: `Task "${data.title}" has been successfully ${task ? 'updated' : 'created'}.`,
         });
-        // Redirect is handled by server action in createTask, so no client-side router.push needed for creation.
-        // For updates, you might want to navigate or revalidate differently.
       }
     } catch (error) {
       toast({
@@ -193,22 +191,52 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           />
         </div>
         
-        <FormField
-          control={form.control}
-          name="cost"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cost (USD)</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="Enter amount" {...field} 
-                  value={field.value === null ? '' : field.value}
-                  onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="cost"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cost (USD)</FormLabel>
+                <FormControl>
+                  <Input type="number" placeholder="Enter amount" {...field} 
+                    value={field.value === null ? '' : field.value}
+                    onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="categoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center"><Tags className="mr-2 h-4 w-4 text-muted-foreground" />Category</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === "null" ? null : value)} 
+                  defaultValue={field.value || undefined}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="null">Uncategorized</SelectItem>
+                    {taskCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField

@@ -1,7 +1,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { User, Task, Comment, UserRoleObject, UserRoleName, TaskProposal } from '@/types';
+import type { User, Task, Comment, UserRoleObject, UserRoleName, TaskProposal, TaskCategory } from '@/types';
 
 interface AppData {
   users: User[];
@@ -9,6 +9,7 @@ interface AppData {
   comments: Comment[];
   userRoles: UserRoleObject[];
   taskProposals: TaskProposal[];
+  taskCategories: TaskCategory[]; // Added taskCategories
 }
 
 const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data', 'data.json');
@@ -16,11 +17,20 @@ const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data', 'data.json')
 export async function readData(): Promise<AppData> {
   try {
     const jsonData = await fs.readFile(dataFilePath, 'utf-8');
-    return JSON.parse(jsonData) as AppData;
+    const parsedData = JSON.parse(jsonData) as AppData;
+    // Ensure all expected arrays exist
+    return {
+      users: parsedData.users || [],
+      tasks: parsedData.tasks || [],
+      comments: parsedData.comments || [],
+      userRoles: parsedData.userRoles || [],
+      taskProposals: parsedData.taskProposals || [],
+      taskCategories: parsedData.taskCategories || [], // Ensure taskCategories is initialized
+    };
   } catch (error) {
     console.error('Failed to read data file:', error);
     // If file doesn't exist or is corrupted, return a default structure
-    return { users: [], tasks: [], comments: [], userRoles: [], taskProposals: [] };
+    return { users: [], tasks: [], comments: [], userRoles: [], taskProposals: [], taskCategories: [] };
   }
 }
 
@@ -37,7 +47,18 @@ export async function writeData(data: AppData): Promise<void> {
 // User Role specific functions
 export async function getUserRoles(): Promise<UserRoleObject[]> {
   const data = await readData();
-  return data.userRoles || []; 
+  return data.userRoles; 
+}
+
+// Task Category specific functions
+export async function getTaskCategories(): Promise<TaskCategory[]> {
+  const data = await readData();
+  return data.taskCategories;
+}
+
+export async function getTaskCategoryById(id: string): Promise<TaskCategory | undefined> {
+  const categories = await getTaskCategories();
+  return categories.find(category => category.id === id);
 }
 
 
@@ -76,17 +97,34 @@ export async function addUser(user: User): Promise<void> {
 // Task specific functions
 export async function getTasks(): Promise<Task[]> {
   const data = await readData();
-  return data.tasks;
+  const categories = data.taskCategories || [];
+  return data.tasks.map(task => {
+    const category = categories.find(c => c.id === task.categoryId);
+    return {
+      ...task,
+      categoryName: category ? category.name : 'Uncategorized',
+    };
+  });
 }
 
 export async function getTaskById(id: string): Promise<Task | undefined> {
-  const tasks = await getTasks();
-  return tasks.find(task => task.id === id);
+  const data = await readData();
+  const task = data.tasks.find(task => task.id === id);
+  if (task) {
+    const category = data.taskCategories.find(c => c.id === task.categoryId);
+    return {
+      ...task,
+      categoryName: category ? category.name : 'Uncategorized',
+    };
+  }
+  return undefined;
 }
 
 export async function addTask(task: Task): Promise<void> {
   const data = await readData();
-  data.tasks.push(task);
+  // Remove categoryName before saving if it was added for display
+  const { categoryName, ...taskToSave } = task;
+  data.tasks.push(taskToSave as Task); // Cast because categoryName is removed
   await writeData(data);
 }
 
@@ -94,7 +132,9 @@ export async function updateTask(updatedTask: Task): Promise<void> {
   const data = await readData();
   const taskIndex = data.tasks.findIndex(task => task.id === updatedTask.id);
   if (taskIndex !== -1) {
-    data.tasks[taskIndex] = updatedTask;
+    // Remove categoryName before saving if it was added for display
+    const { categoryName, ...taskToSave } = updatedTask;
+    data.tasks[taskIndex] = taskToSave as Task;
     await writeData(data);
   } else {
     throw new Error('Task not found for update.');

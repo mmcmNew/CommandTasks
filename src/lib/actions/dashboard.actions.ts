@@ -1,23 +1,26 @@
 
 'use server';
 
-import { getTasks, getUsers } from '@/lib/data';
-import type { Task, User } from '@/types';
+import { getTasks as getAllTasksFromDb, getUsers, getTaskCategories } from '@/lib/data';
+import type { Task, User, TaskCategory } from '@/types';
 
 interface DashboardDataResult {
-  tasks: Task[];
+  tasks: Task[]; // Enriched tasks
   users: User[];
+  categories: TaskCategory[];
   error?: string;
 }
 
 export async function getDashboardData(): Promise<DashboardDataResult> {
   try {
-    const tasks = await getTasks();
+    // getTasks from data.ts already enriches with categoryName
+    const tasks = await getAllTasksFromDb(); 
     const users = await getUsers();
-    return { tasks, users };
+    const categories = await getTaskCategories();
+
+    return { tasks, users, categories };
   } catch (error) {
     console.error("Failed to fetch dashboard data:", error);
-    // Return empty arrays and an error message or re-throw, depending on desired error handling
-    return { tasks: [], users: [], error: "Failed to load dashboard data." };
+    return { tasks: [], users: [], categories: [], error: "Failed to load dashboard data." };
   }
 }

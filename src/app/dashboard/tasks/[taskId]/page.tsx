@@ -5,8 +5,8 @@ import {
   fetchTaskPageData, 
   markTaskAsCompletedByExecutorAction,
   acceptCompletedTaskByCustomerAction,
-  acceptReworkAction, // Executor accepts customer's rework
-  confirmPaymentByExecutorAction, // New action for executor to confirm payment
+  acceptReworkAction, 
+  confirmPaymentByExecutorAction, 
 } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
@@ -17,14 +17,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard // Added CreditCard for payment
+  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard, Tags // Added Tags
 } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState, useTransition, useCallback } from 'react';
-import type { Comment as CommentType, User as UserType, Task as TaskType, EnrichedTaskProposal, UserRoleObject, UserRoleName } from '@/types';
+import type { Comment as CommentType, User as UserType, Task as TaskType, EnrichedTaskProposal, UserRoleObject, UserRoleName, TaskCategory } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -32,6 +32,7 @@ interface EnrichedTaskDetails extends TaskType {
   authorName: string;
   customerName: string;
   executorName: string;
+  // categoryName is already on TaskType from types/index.ts
 }
 
 
@@ -48,6 +49,7 @@ export default function TaskDetailPage() {
   const [users, setUsers] = useState<UserType[]>([]); 
   const [taskProposals, setTaskProposals] = useState<EnrichedTaskProposal[]>([]);
   const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
+  const [taskCategories, setTaskCategories] = useState<TaskCategory[]>([]); // Added for completeness, though categoryName is on taskDetails
   const [currentUserRole, setCurrentUserRole] = useState<UserRoleName | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -63,7 +65,7 @@ export default function TaskDetailPage() {
       setLoading(true);
       const result = await fetchTaskPageData(taskId, currentUser.id); 
 
-      if (result.success && result.taskDetails && result.comments && result.users && result.taskProposals && result.userRoles) {
+      if (result.success && result.taskDetails && result.comments && result.users && result.taskProposals && result.userRoles && result.taskCategories) {
         if (!result.taskDetails) { 
           notFound(); 
           return;
@@ -73,6 +75,7 @@ export default function TaskDetailPage() {
         setUsers(result.users);
         setTaskProposals(result.taskProposals);
         setUserRoles(result.userRoles);
+        setTaskCategories(result.taskCategories);
         setCurrentUserRole(result.currentUserRoleName || null);
 
       } else {
@@ -187,18 +190,13 @@ export default function TaskDetailPage() {
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
-  // Conditions for action buttons
   const isCustomer = currentUser.id === taskDetails.customerId;
   const isExecutor = currentUser.id === taskDetails.executorId;
 
   const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано заказчиком");
-  
   const canCustomerAcceptCompletedTask = isCustomer && (taskDetails.status === "Ожидает проверку" || taskDetails.status === "Доработано исполнителем");
-
   const canExecutorAcceptCustomerRework = taskDetails.status === "Доработано заказчиком" && isExecutor;
-
   const canExecutorConfirmPayment = isExecutor && taskDetails.status === "Принята. Ожидает подтверждение оплаты";
-
 
   const showProposalForm = currentUserRole === 'исполнитель' && 
                            !taskDetails.executorId && 
@@ -210,7 +208,6 @@ export default function TaskDetailPage() {
                            (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
 
   const currentUserProposal = taskProposals.find(p => p.executorId === currentUser.id);
-
 
   return (
     <div className="space-y-8">
@@ -235,6 +232,13 @@ export default function TaskDetailPage() {
           <Separator />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+            <div className="flex items-start">
+              <Tags className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Category</p>
+                <p className="text-muted-foreground">{taskDetails.categoryName || 'N/A'}</p>
+              </div>
+            </div>
             <div className="flex items-start">
               <CalendarDays className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div>
@@ -293,7 +297,6 @@ export default function TaskDetailPage() {
           )}
         </CardContent>
         <CardFooter className="flex flex-wrap justify-start items-start sm:items-center gap-2 pt-4 border-t">
-          {/* === Customer Actions === */}
           {isCustomer && (
             <>
               {canCustomerAcceptCompletedTask && (
@@ -312,7 +315,6 @@ export default function TaskDetailPage() {
             </>
           )}
 
-          {/* === Executor Actions === */}
           {isExecutor && (
             <>
               {canExecutorAcceptCustomerRework && ( 
@@ -377,7 +379,6 @@ export default function TaskDetailPage() {
             onProposalAccepted={fetchData}
         />
       )}
-
 
       <CommentSection 
         taskId={taskDetails.id} 

@@ -7,7 +7,7 @@ import {
   getTaskById, 
   updateTask, 
   saveFile, 
-  getTasks as getAllTasks,
+  getTasks as getAllTasksFromDb, // Renamed to avoid conflict
   getCommentsByTaskId as fetchCommentsFromDb,
   getUserRoles as fetchUserRolesFromDb,
   getUsers as fetchAllUsersFromDb,
@@ -17,11 +17,13 @@ import {
   getTaskProposalsByTaskId as fetchTaskProposalsFromDb,
   getTaskProposalById as fetchTaskProposalByIdFromDb,
   deleteTaskProposalsByTaskId,
+  getTaskCategories, // Added
+  getTaskCategoryById, // Added
   // deleteTaskProposalById, // Not currently used, but keep for future
 } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
-import type { Task, TaskAttachment, Comment, TaskStatus, TaskProposal, UserRoleName, EnrichedTaskProposal, User } from '@/types';
+import type { Task, TaskAttachment, Comment, TaskStatus, TaskProposal, UserRoleName, EnrichedTaskProposal, User, TaskCategory } from '@/types';
 import { revalidatePath } from 'next/cache';
 
 export async function createTask(formData: FormData, authorId: string) { 
@@ -37,10 +39,17 @@ export async function createTask(formData: FormData, authorId: string) {
     cost: formData.get('cost') ? parseFloat(formData.get('cost') as string) : null,
     customerId: formData.get('customerId') as string,
     executorId: formData.get('executorId') ? formData.get('executorId') as string : null,
+    categoryId: formData.get('categoryId') as string | null, // Added categoryId
     attachments: formData.getAll('attachments') as File[],
   };
   
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
+  
+  // If categoryId is "null" string from form, convert to actual null
+  if (rawFormData.categoryId === "null" || rawFormData.categoryId === "") {
+    rawFormData.categoryId = null;
+  }
+
 
   const validatedFields = TaskSchema.safeParse(rawFormData);
 
@@ -49,7 +58,7 @@ export async function createTask(formData: FormData, authorId: string) {
     return { error: 'Invalid fields.', details: validatedFields.error.flatten().fieldErrors };
   }
   
-  const { title, description, status, dueDate, cost, customerId, executorId, attachments } = validatedFields.data;
+  const { title, description, status, dueDate, cost, customerId, executorId, categoryId, attachments } = validatedFields.data;
 
   const newTaskId = uuidv4();
   const uploadedAttachments: TaskAttachment[] = [];
@@ -78,8 +87,9 @@ export async function createTask(formData: FormData, authorId: string) {
     authorId: authorId, 
     createdAt: new Date().toISOString(),
     attachments: uploadedAttachments,
-    customerId, // Added customerId
-    executorId: executorId ?? null, // Ensured executorId is handled
+    customerId, 
+    executorId: executorId ?? null, 
+    categoryId: categoryId ?? null, // Handle null categoryId
   };
 
   try {
@@ -95,19 +105,20 @@ export async function createTask(formData: FormData, authorId: string) {
 }
 
 export async function getTaskDetails(taskId: string) {
-  const task = await getTaskById(taskId);
+  const task = await getTaskById(taskId); // getTaskById now enriches with categoryName
   if (!task) return null;
 
   const users = await fetchAllUsersFromDb(); 
   const author = users.find(u => u.id === task.authorId);
   const customer = users.find(u => u.id === task.customerId);
   const executor = task.executorId ? users.find(u => u.id === task.executorId) : null;
-
+  
   return {
     ...task,
     authorName: author?.name || 'Unknown',
     customerName: customer?.name || 'Unknown',
     executorName: executor?.name || 'N/A',
+    // categoryName is already on task from getTaskById
   };
 }
 
@@ -115,7 +126,7 @@ export async function changeTaskStatusAndLog(
   taskId: string,
   newStatus: TaskStatus, 
   currentUserId: string,
-  commentContent?: string // Optional comment to add with status change
+  commentContent?: string 
 ) {
   if (!currentUserId) {
     return { error: 'Unauthorized. User ID is missing.' };
@@ -134,9 +145,6 @@ export async function changeTaskStatusAndLog(
 
   let commentText = `Пользователь ${userName} изменил статус задачи с "${oldStatus}" на: "${newStatus}".`;
   if (commentContent) {
-    // If commentContent is provided, it implies this log is *supplementary* to a user's explicit comment.
-    // The main comment action (addCommentToTask) will handle the user's text.
-    // This log should just be the system status change message.
     commentText = `Статус задачи изменен с "${oldStatus}" на "${newStatus}" пользователем ${userName}.`;
   }
   
@@ -147,7 +155,7 @@ export async function changeTaskStatusAndLog(
     text: commentText,
     attachments: [],
     timestamp: new Date().toISOString(),
-    isSystemMessage: true, // Mark as system message
+    isSystemMessage: true, 
   };
 
   try {
@@ -165,7 +173,7 @@ export async function changeTaskStatusAndLog(
 
 export async function fetchTaskPageData(taskId: string, currentUserId?: string) {
   try {
-    const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); 
+    const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); // Already includes categoryName
     
     if (!taskDetailsWithEnrichedUsers) {
       return { success: false, error: "Task not found." };
@@ -174,6 +182,7 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
     const comments = await fetchCommentsFromDb(taskId);
     const allUsersList = await fetchAllUsersFromDb();
     const userRoles = await fetchUserRolesFromDb();
+    const taskCategories = await getTaskCategories(); // Fetch all categories
 
     const rawProposals = await fetchTaskProposalsFromDb(taskId);
     const enrichedProposals: EnrichedTaskProposal[] = rawProposals.map(proposal => {
@@ -193,7 +202,8 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
       comments, 
       users: allUsersList,
       taskProposals: enrichedProposals,
-      userRoles, 
+      userRoles,
+      taskCategories, // Return categories
       currentUserRoleName: currentUser?.roleName
     };
   } catch (error) {
@@ -204,11 +214,12 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
 
 export async function fetchNewTaskPageData() {
   try {
-    const [users, userRoles] = await Promise.all([
+    const [users, userRoles, taskCategories] = await Promise.all([
       fetchAllUsersFromDb(),
-      fetchUserRolesFromDb()
+      fetchUserRolesFromDb(),
+      getTaskCategories() // Fetch categories
     ]);
-    return { success: true, users, userRoles };
+    return { success: true, users, userRoles, taskCategories }; // Return categories
   } catch (error) {
     console.error("Failed to fetch new task page data:", error);
     return { success: false, error: "Failed to load data for new task form." };
@@ -250,21 +261,20 @@ export async function submitTaskProposal(formData: FormData, currentUserId: stri
      return { error: 'Task is not open for proposals at this stage.' };
   }
 
-  // Check if this executor already has a proposal for this task
   const existingProposals = await fetchTaskProposalsFromDb(taskId);
   const existingProposalForUser = existingProposals.find(p => p.executorId === currentUserId);
 
   const proposalToSave: TaskProposal = {
-    id: existingProposalForUser ? existingProposalForUser.id : uuidv4(), // Use existing ID if updating
+    id: existingProposalForUser ? existingProposalForUser.id : uuidv4(), 
     taskId,
     executorId: currentUserId,
     proposedCost,
     proposedDueDate: proposedDueDate ? proposedDueDate.toISOString() : null,
-    timestamp: new Date().toISOString(), // Always update timestamp for new or edited proposal
+    timestamp: new Date().toISOString(), 
   };
 
   try {
-    await saveTaskProposal(proposalToSave); // saveTaskProposal handles create or update
+    await saveTaskProposal(proposalToSave); 
     revalidatePath(`/dashboard/tasks/${taskId}`);
     return { success: existingProposalForUser ? 'Proposal updated successfully.' : 'Proposal submitted successfully.' };
   } catch (error) {
@@ -339,8 +349,6 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
   }
 }
 
-// Task completion flow actions
-
 export async function markTaskAsCompletedByExecutorAction(taskId: string, currentUserId: string) {
   if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
 
@@ -396,11 +404,11 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
   const user = await getUserById(currentUserId);
   const userName = user ? user.name : 'Заказчик';
   const oldStatus = task.status;
-  const newStatus: TaskStatus = 'Принята. Ожидает подтверждение оплаты'; // Changed status
+  const newStatus: TaskStatus = 'Принята. Ожидает подтверждение оплаты'; 
 
   task.status = newStatus;
 
-  const commentText = `Заказчик ${userName} принял выполненную работу. Статус изменен с "${oldStatus}" на "${newStatus}". Ожидается подтверждение оплаты исполнителем.`; // Updated comment
+  const commentText = `Заказчик ${userName} принял выполненную работу. Статус изменен с "${oldStatus}" на "${newStatus}". Ожидается подтверждение оплаты исполнителем.`; 
   const newComment: Comment = {
     id: uuidv4(),
     taskId,
@@ -416,8 +424,7 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    // No revalidatePath to history yet, as task is not fully "Завершено"
-    return { success: `Task accepted. Status: ${newStatus}. Awaiting payment confirmation.` }; // Updated success message
+    return { success: `Task accepted. Status: ${newStatus}. Awaiting payment confirmation.` }; 
   } catch (error) {
     console.error('Error accepting task:', error);
     return { error: 'Could not accept task.' };
@@ -458,7 +465,7 @@ export async function confirmPaymentByExecutorAction(taskId: string, currentUser
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    revalidatePath('/dashboard/history'); // Now revalidate history as task is completed
+    revalidatePath('/dashboard/history'); 
     return { success: `Payment confirmed. Task is now completed. Status: ${newStatus}.` };
   } catch (error) {
     console.error('Error confirming payment:', error);
@@ -466,8 +473,6 @@ export async function confirmPaymentByExecutorAction(taskId: string, currentUser
   }
 }
 
-
-// Executor accepts customer's rework/info
 export async function acceptReworkAction(taskId: string, currentUserId: string) {
   if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
 
@@ -512,12 +517,16 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
 
 export async function getCompletedTasksAction() {
   try {
-    const allTasks = await getAllTasks();
+    const allTasks = await getAllTasksFromDb(); // This now returns enriched tasks
     const allUsers = await fetchAllUsersFromDb();
+    // const allCategories = await getTaskCategories(); // Already fetched by getAllTasksFromDb
+
     const completedTasks = allTasks.filter(task => task.status === "Завершено");
-    return { success: true, tasks: completedTasks, users: allUsers };
+    
+    // Tasks are already enriched by getAllTasksFromDb
+    return { success: true, tasks: completedTasks, users: allUsers /*, categories: allCategories */ };
   } catch (error) {
     console.error("Failed to fetch completed tasks:", error);
-    return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
+    return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] /*, categories: [] */ };
   }
 }

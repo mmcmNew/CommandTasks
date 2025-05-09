@@ -1,12 +1,16 @@
+
 // src/app/dashboard/history/page.tsx
 import { getCompletedTasksAction } from '@/lib/actions/task.actions';
 import TaskList from '@/components/tasks/task-list';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, HistoryIcon, ListChecks } from 'lucide-react'; // Added HistoryIcon
+import { AlertTriangle, HistoryIcon, ListChecks } from 'lucide-react'; 
+import type { TaskCategory } from '@/types'; // Added TaskCategory
 
 export default async function HistoryPage() {
-  const { tasks, users, error } = await getCompletedTasksAction();
+  // getCompletedTasksAction now returns tasks already enriched with categoryName
+  const { tasks, users, error /*, categories */ } = await getCompletedTasksAction(); 
+  // Categories are fetched within the action and used for enrichment, not directly needed here.
 
   if (error) {
     return (
@@ -53,11 +57,11 @@ export default async function HistoryPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            {/* Optional: Link back to dashboard or tasks page */}
           </CardContent>
         </Card>
       ) : (
-        <TaskList tasks={tasks} users={users} />
+        // Pass an empty array for categories if not used directly by TaskList for sorting/filtering UI in this context
+        <TaskList tasks={tasks} users={users} categories={[]} />
       )}
     </div>
   );

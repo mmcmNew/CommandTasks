@@ -32,6 +32,11 @@ export interface TaskAttachment {
   type: "image" | "pdf" | "other";
 }
 
+export interface TaskCategory {
+  id: string;
+  name: string;
+}
+
 export interface Task {
   id: string;
   createdAt: string; // ISO date string
@@ -44,6 +49,8 @@ export interface Task {
   customerId: string; // User ID
   executorId: string | null; // User ID or null
   attachments: TaskAttachment[];
+  categoryId: string | null; // Added categoryId
+  categoryName?: string; // For enriched tasks
 }
 
 export interface CommentAttachment extends TaskAttachment {}

@@ -1,26 +1,27 @@
-import type { Task, User } from '@/types';
+
+import type { Task, User, TaskCategory } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import TaskStatusBadge from './task-status-badge';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Eye, Edit3, Trash2, CalendarDays, DollarSign, User as UserIcon } from 'lucide-react';
+import { Eye, Edit3, Trash2, CalendarDays, DollarSign, User as UserIcon, Tags } from 'lucide-react'; // Added Tags
 import Image from 'next/image';
 
 interface TaskListProps {
-  tasks: Task[];
+  tasks: Task[]; // Assumes tasks are enriched with categoryName
   users: User[];
+  categories: TaskCategory[]; // Pass categories for potential filtering/sorting UI, though categoryName is on task
 }
 
-// Helper function to get user name by ID
 const getUserName = (userId: string | null, users: User[]): string => {
   if (!userId) return 'N/A';
   const user = users.find(u => u.id === userId);
   return user ? user.name : 'Unknown User';
 };
 
-export default function TaskList({ tasks, users }: TaskListProps) {
+export default function TaskList({ tasks, users, categories }: TaskListProps) {
   
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -39,6 +40,7 @@ export default function TaskList({ tasks, users }: TaskListProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Cost</TableHead>
@@ -55,6 +57,12 @@ export default function TaskList({ tasks, users }: TaskListProps) {
                     {task.title}
                   </Link>
                 </TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Tags className="mr-2 h-3.5 w-3.5 text-muted-foreground opacity-80" />
+                    {task.categoryName || 'N/A'}
+                  </div>
+                </TableCell>
                 <TableCell><TaskStatusBadge status={task.status} /></TableCell>
                 <TableCell>{formatDate(task.dueDate)}</TableCell>
                 <TableCell>{task.cost ? `$${task.cost.toLocaleString()}` : 'N/A'}</TableCell>
@@ -66,15 +74,6 @@ export default function TaskList({ tasks, users }: TaskListProps) {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
-                  {/* Edit and Delete actions can be added later */}
-                  {/* 
-                  <Button variant="ghost" size="icon" aria-label="Edit task">
-                    <Edit3 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" aria-label="Delete task" className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button> 
-                  */}
                 </TableCell>
               </TableRow>
             ))}
@@ -95,6 +94,9 @@ export default function TaskList({ tasks, users }: TaskListProps) {
                 </CardTitle>
                 <TaskStatusBadge status={task.status} />
               </div>
+              <CardDescription className="flex items-center text-xs">
+                <Tags className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" /> Category: {task.categoryName || 'N/A'}
+              </CardDescription>
               <CardDescription>
                 Created: {formatDate(task.createdAt)}
               </CardDescription>
