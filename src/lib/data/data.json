@@ -51,20 +51,6 @@
       ]
     },
     {
-      "id": "0d702eec-6061-41d9-84e6-0846692d65d2",
-      "title": "Проверить работу системы",
-      "description": "Изменение статусов и правильно ли работают комментарии",
-      "status": "Новая",
-      "dueDate": null,
-      "cost": null,
-      "customerId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
-      "executorId": null,
-      "authorId": "01010101-0101-0101-0101-010101010101",
-      "createdAt": "2025-05-09T03:06:29.230Z",
-      "categoryId": "cat-dev",
-      "attachments": []
-    },
-    {
       "id": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
       "title": "Проверить работу системы",
       "description": "Установку статусов и найм исполнителей",
@@ -447,15 +433,6 @@
       "isSystemMessage": true
     },
     {
-      "id": "6e3ebff0-e3ca-40b9-905f-0acd37e74e23",
-      "taskId": "0d702eec-6061-41d9-84e6-0846692d65d2",
-      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
-      "text": "First",
-      "attachments": [],
-      "timestamp": "2025-05-09T03:07:55.876Z",
-      "isSystemMessage": false
-    },
-    {
       "id": "a6634703-e781-4455-b744-4c491d669106",
       "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
       "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
@@ -605,16 +582,7 @@
       "name": "администратор"
     }
   ],
-  "taskProposals": [
-    {
-      "id": "b36abeff-e454-4cbb-a26a-8aab68d67959",
-      "taskId": "0d702eec-6061-41d9-84e6-0846692d65d2",
-      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
-      "proposedCost": 100,
-      "proposedDueDate": "2025-05-09T19:00:00.000Z",
-      "timestamp": "2025-05-09T03:07:42.954Z"
-    }
-  ],
+  "taskProposals": [],
   "taskCategories": [
     {
       "id": "cat-dev",
