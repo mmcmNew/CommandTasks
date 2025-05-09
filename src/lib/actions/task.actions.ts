@@ -22,11 +22,20 @@ import {
   deleteTask as deleteTaskFromDb,
 } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
-import { redirect } from 'next/navigation';
+// import { redirect } from 'next/navigation'; // No longer redirecting from actions directly
 import type { Task, TaskAttachment, Comment, TaskStatus, TaskProposal, UserRoleName, EnrichedTaskProposal, User, TaskCategory } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function createTaskAction(formData: FormData, authorId: string) { 
+interface ActionResult {
+  success?: boolean;
+  error?: string;
+  details?: any; // For validation errors
+  redirectUrl?: string;
+  data?: any; // For returning data if needed
+}
+
+
+export async function createTaskAction(formData: FormData, authorId: string): Promise<ActionResult> { 
   if (!authorId) {
     return { error: 'Unauthorized. Author ID is missing.' };
   }
@@ -100,10 +109,11 @@ export async function createTaskAction(formData: FormData, authorId: string) {
     return { error: 'Could not create task.' };
   }
   
-  redirect(`/dashboard/tasks/${newTaskId}`);
+  // redirect(`/dashboard/tasks/${newTaskId}`);
+  return { success: true, redirectUrl: `/dashboard/tasks/${newTaskId}` };
 }
 
-export async function updateTaskAction(taskId: string, formData: FormData, currentUserId: string) {
+export async function updateTaskAction(taskId: string, formData: FormData, currentUserId: string): Promise<ActionResult> {
   const currentUser = await getUserById(currentUserId);
   if (!currentUser) {
     return { error: 'Unauthorized. User not found.' };
@@ -118,7 +128,7 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
   }
 
   const categoryIdFromForm = formData.get('categoryId') as string | null;
-  const finalCategoryId = (categoryIdFromForm === null || categoryIdFromForm === "" || categoryIdFromForm === "null" || categoryIdFromForm === "none") // "none" might come from executorId logic, good to be safe
+  const finalCategoryId = (categoryIdFromForm === null || categoryIdFromForm === "" || categoryIdFromForm === "null" || categoryIdFromForm === "none") 
                             ? null
                             : categoryIdFromForm;
 
@@ -146,7 +156,7 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
 
   let finalAttachments: TaskAttachment[] = existingTask.attachments || [];
   if (newAttachmentFiles && newAttachmentFiles.length > 0) {
-    finalAttachments = []; // Replace all existing attachments
+    finalAttachments = []; 
     for (const file of newAttachmentFiles) {
       if (file && file.size > 0) {
         try {
@@ -161,7 +171,7 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
   }
   
   const taskToUpdate: Task = {
-    ...existingTask, // Preserve authorId, createdAt, id
+    ...existingTask, 
     title,
     description,
     status,
@@ -182,11 +192,12 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
     console.error('Task update error:', error);
     return { error: 'Could not update task.' };
   }
-  redirect(`/dashboard/tasks/${taskId}`);
+  // redirect(`/dashboard/tasks/${taskId}`);
+  return { success: true, redirectUrl: `/dashboard/tasks/${taskId}` };
 }
 
 
-export async function deleteTaskAction(taskId: string, currentUserId: string) {
+export async function deleteTaskAction(taskId: string, currentUserId: string): Promise<ActionResult> {
   const currentUser = await getUserById(currentUserId);
   if (!currentUser) {
     return { error: 'Unauthorized. User not found.' };
@@ -203,7 +214,8 @@ export async function deleteTaskAction(taskId: string, currentUserId: string) {
     console.error('Task deletion error:', error);
     return { error: 'Could not delete task.' };
   }
-  redirect('/dashboard');
+  // redirect('/dashboard');
+  return { success: true, redirectUrl: '/dashboard' };
 }
 
 
@@ -265,7 +277,7 @@ export async function changeTaskStatusAndLog(
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Task status updated to "${newStatus}" and comment logged.` };
+    return { success: true, message: `Task status updated to "${newStatus}" and comment logged.` };
   } catch (error) {
     console.error('Error updating task status and logging comment:', error);
     return { error: 'Could not update task status or log comment.' };
@@ -314,7 +326,7 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
   }
 }
 
-export async function fetchNewTaskPageData(taskId?: string) { // Optional taskId for edit mode
+export async function fetchNewTaskPageData(taskId?: string) { 
   try {
     const [users, userRoles, taskCategories, taskToEdit] = await Promise.all([
       fetchAllUsersFromDb(),
@@ -379,7 +391,7 @@ export async function submitTaskProposal(formData: FormData, currentUserId: stri
   try {
     await saveTaskProposal(proposalToSave); 
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: existingProposalForUser ? 'Proposal updated successfully.' : 'Proposal submitted successfully.' };
+    return { success: true, message: existingProposalForUser ? 'Proposal updated successfully.' : 'Proposal submitted successfully.' };
   } catch (error) {
     console.error('Error submitting/updating task proposal:', error);
     return { error: 'Could not submit or update proposal.' };
@@ -445,7 +457,7 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
 
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${task.id}`);
-    return { success: 'Proposal accepted and executor assigned.' };
+    return { success: true, message: 'Proposal accepted and executor assigned.' };
   } catch (error) {
     console.error('Error accepting task proposal:', error);
     return { error: 'Could not accept proposal.' };
@@ -486,7 +498,7 @@ export async function markTaskAsCompletedByExecutorAction(taskId: string, curren
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Task marked as completed. Status: ${newStatus}.` };
+    return { success: true, message: `Task marked as completed. Status: ${newStatus}.` };
   } catch (error) {
     console.error('Error marking task as completed:', error);
     return { error: 'Could not mark task as completed.' };
@@ -527,7 +539,7 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Task accepted. Status: ${newStatus}. Awaiting payment confirmation.` }; 
+    return { success: true, message: `Task accepted. Status: ${newStatus}. Awaiting payment confirmation.` }; 
   } catch (error) {
     console.error('Error accepting task:', error);
     return { error: 'Could not accept task.' };
@@ -569,7 +581,7 @@ export async function confirmPaymentByExecutorAction(taskId: string, currentUser
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
     revalidatePath('/dashboard/history'); 
-    return { success: `Payment confirmed. Task is now completed. Status: ${newStatus}.` };
+    return { success: true, message: `Payment confirmed. Task is now completed. Status: ${newStatus}.` };
   } catch (error) {
     console.error('Error confirming payment:', error);
     return { error: 'Could not confirm payment.' };
@@ -610,7 +622,7 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Rework accepted. Task is now "${newStatus}".` };
+    return { success: true, message: `Rework accepted. Task is now "${newStatus}".` };
   } catch (error) {
     console.error('Error accepting customer rework:', error);
     return { error: 'Could not accept customer rework.' };
@@ -631,4 +643,3 @@ export async function getCompletedTasksAction() {
     return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
-

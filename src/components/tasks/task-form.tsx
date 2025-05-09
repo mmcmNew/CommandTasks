@@ -79,7 +79,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         cost: task.cost || null,
         customerId: task.customerId || '',
         executorId: task.executorId || null,
-        categoryId: (task.categoryId === undefined || task.categoryId === "") ? null : task.categoryId,
+        categoryId: (task.categoryId === undefined || task.categoryId === "" || task.categoryId === null) ? UNCATEGORIZED_VALUE : task.categoryId,
         attachments: [], 
       });
     } else if (!isEditMode) {
@@ -91,7 +91,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           cost: null,
           customerId: currentUser?.id || '',
           executorId: null,
-          categoryId: defaultCategoryId,
+          categoryId: defaultCategoryId === null ? UNCATEGORIZED_VALUE : defaultCategoryId,
           attachments: [],
       });
     }
@@ -112,7 +112,10 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         });
       } else if (value instanceof Date) {
         formData.append(key, value.toISOString());
-      } else if (value !== null && value !== undefined) {
+      } else if (key === 'categoryId' && value === UNCATEGORIZED_VALUE) {
+        // Don't append if it's the placeholder for null
+      }
+       else if (value !== null && value !== undefined) {
         formData.append(key, String(value));
       }
     });
@@ -132,12 +135,19 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
           description: result.error + (result.details ? ` ${Object.values(result.details).flat().join(', ')}` : ''),
           variant: 'destructive',
         });
-      } else {
+      } else if (result?.success && result.redirectUrl) {
         toast({
           title: isEditMode ? 'Task Updated' : 'Task Created',
           description: `Task "${data.title}" has been successfully ${isEditMode ? 'updated' : 'created'}.`,
         });
-        // Redirect is handled by the actions
+        router.push(result.redirectUrl);
+      } else {
+        // Fallback if result is not in expected shape, though ideally should not happen
+         toast({
+          title: 'Unexpected Response',
+          description: 'The operation might have succeeded, but an unexpected response was received.',
+          variant: 'default',
+        });
       }
     } catch (error) {
       toast({
@@ -157,9 +167,15 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
       const result = await deleteTaskAction(task.id, currentUser.id);
       if (result?.error) {
         toast({ title: 'Delete Failed', description: result.error, variant: 'destructive' });
-      } else {
+      } else if (result?.success && result.redirectUrl) {
         toast({ title: 'Task Deleted', description: 'The task has been successfully deleted.' });
-        // Redirect is handled by deleteTaskAction
+        router.push(result.redirectUrl);
+      } else {
+         toast({
+          title: 'Unexpected Response',
+          description: 'The deletion might have succeeded, but an unexpected response was received.',
+          variant: 'default',
+        });
       }
     } catch (error) {
       toast({ title: 'Operation Failed', description: 'An unexpected error occurred during deletion.', variant: 'destructive' });
@@ -287,7 +303,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
                 <FormLabel className="flex items-center"><Tags className="mr-2 h-4 w-4 text-muted-foreground" />Category</FormLabel>
                 <Select 
                   onValueChange={(value) => field.onChange(value === UNCATEGORIZED_VALUE ? null : value)} 
-                  value={field.value === null || field.value === undefined ? UNCATEGORIZED_VALUE : field.value}
+                  value={field.value === null || field.value === undefined || field.value === "" ? UNCATEGORIZED_VALUE : field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -421,4 +437,3 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
     </Form>
   );
 }
-
