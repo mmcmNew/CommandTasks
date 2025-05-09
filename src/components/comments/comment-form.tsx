@@ -46,16 +46,16 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
     const isCustomer = currentUser.id === taskCustomerId;
     const isExecutor = currentUser.id === taskExecutorId;
 
+    // From "Требует доработки от ..." to "Доработано ..."
     if (taskStatus === "Требует доработки от заказчика" && isCustomer) {
-      options.push("Доработано");
+      options.push("Доработано заказчиком");
     }
     if (taskStatus === "Требует доработки от исполнителя" && isExecutor) {
-      options.push("Доработано");
+      options.push("Доработано исполнителем");
     }
-    if (taskStatus === "Ожидает проверку" && isCustomer) {
-      options.push("Требует доработки от исполнителя");
-    }
-    if (taskStatus === "В работе" || taskStatus === "Доработано") {
+
+    // From "В работе" to "Требует доработки от ..."
+    if (taskStatus === "В работе") {
       if (isExecutor) {
         options.push("Требует доработки от заказчика");
       }
@@ -63,6 +63,12 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
          options.push("Требует доработки от исполнителя");
       }
     }
+    
+    // From "Ожидает проверку" (by customer) to "Требует доработки от исполнителя"
+    if (taskStatus === "Ожидает проверку" && isCustomer) {
+      options.push("Требует доработки от исполнителя");
+    }
+    
     return options;
   }, [currentUser, taskStatus, taskCustomerId, taskExecutorId]);
 
@@ -195,4 +201,5 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
     </Form>
   );
 }
+
 

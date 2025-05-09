@@ -3,10 +3,10 @@
 
 import { 
   fetchTaskPageData, 
-  // changeTaskStatusAndLog, // No longer directly called by buttons on this page for "send to rework"
   markTaskAsCompletedByExecutorAction,
   acceptCompletedTaskByCustomerAction,
-  acceptReworkAction, 
+  acceptReworkAction, // Executor accepts customer's rework
+  acceptExecutorReworkByCustomerAction, // Customer accepts executor's rework
 } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
@@ -17,14 +17,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  /*SendToBack, Reply,*/ CheckCircle, ThumbsUp, CheckSquare, CornerRightUp /*AlertTriangle*/ // Removed unused icons
+  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp 
 } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState, useTransition, useCallback } from 'react';
-import type { Comment as CommentType, User as UserType, Task as TaskType, /*TaskStatus,*/ EnrichedTaskProposal, UserRoleObject, UserRoleName } from '@/types';
+import type { Comment as CommentType, User as UserType, Task as TaskType, EnrichedTaskProposal, UserRoleObject, UserRoleName } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -51,10 +51,10 @@ export default function TaskDetailPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRoleName | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // const [isStatusChanging, startStatusChangeTransition] = useTransition(); // No longer needed for direct buttons
   const [isCompletingTask, startCompleteTaskTransition] = useTransition();
   const [isAcceptingTask, startAcceptTaskTransition] = useTransition();
-  const [isAcceptingRework, startAcceptReworkTransition] = useTransition();
+  const [isAcceptingRework, startAcceptReworkTransition] = useTransition(); // Executor accepts customer's rework
+  const [isAcceptingExecutorRework, startAcceptExecutorReworkTransition] = useTransition(); // Customer accepts executor's rework
 
 
   const fetchData = useCallback(async () => {
@@ -114,7 +114,6 @@ export default function TaskDetailPage() {
     }
   };
 
-  // handleRequestRevision is removed as this is now handled by comment form + selecting status
 
   const handleMarkTaskAsCompleted = () => {
     if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
@@ -142,7 +141,8 @@ export default function TaskDetailPage() {
     });
   };
 
-  const handleAcceptRework = () => { // For executor accepting customer's rework/info
+  // Executor accepts customer's rework
+  const handleAcceptCustomerRework = () => { 
     if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
     startAcceptReworkTransition(async () => {
       const result = await acceptReworkAction(taskDetails.id, currentUser.id);
@@ -154,8 +154,22 @@ export default function TaskDetailPage() {
       }
     });
   };
+
+  // Customer accepts executor's rework
+  const handleAcceptExecutorRework = () => {
+    if (!currentUser || !taskDetails || taskDetails.customerId !== currentUser.id) return;
+    startAcceptExecutorReworkTransition(async () => {
+      const result = await acceptExecutorReworkByCustomerAction(taskDetails.id, currentUser.id);
+      if (result.success) {
+        toast({ title: "Executor's Rework Accepted", description: result.success });
+        fetchData();
+      } else {
+        toast({ title: "Error", description: result.error || "Could not accept executor's rework.", variant: "destructive" });
+      }
+    });
+  };
   
-  const isAnyActionPending = /*isStatusChanging ||*/ isCompletingTask || isAcceptingTask || isAcceptingRework;
+  const isAnyActionPending = isCompletingTask || isAcceptingTask || isAcceptingRework || isAcceptingExecutorRework;
 
 
   if (loading || authLoading) {
@@ -179,14 +193,17 @@ export default function TaskDetailPage() {
   const isCustomer = currentUser.id === taskDetails.customerId;
   const isExecutor = currentUser.id === taskDetails.executorId;
 
-  // Executor can mark task as complete if status is "В работе" or "Доработано"
-  const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано");
+  // Executor can mark task as complete if status is "В работе" or "Доработано заказчиком"
+  const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано заказчиком");
   
   // Customer can accept completed task (which is in "Ожидает проверку")
   const canCustomerAcceptCompletedTask = isCustomer && taskDetails.status === "Ожидает проверку";
 
-  // Executor can accept customer's rework/info if status is "Доработано"
-  const canExecutorAcceptCustomerRework = taskDetails.status === "Доработано" && isExecutor;
+  // Executor can accept customer's rework/info if status is "Доработано заказчиком"
+  const canExecutorAcceptCustomerRework = taskDetails.status === "Доработано заказчиком" && isExecutor;
+
+  // Customer can accept executor's rework/info if status is "Доработано исполнителем"
+  const canCustomerAcceptExecutorRework = taskDetails.status === "Доработано исполнителем" && isCustomer;
 
 
   const showProposalForm = currentUserRole === 'исполнитель' && 
@@ -292,32 +309,39 @@ export default function TaskDetailPage() {
                   size="sm"
                   onClick={handleAcceptCompletedTask} 
                   disabled={isAnyActionPending}
-                  className="shadow-md bg-blue-600 hover:bg-blue-700 text-white"
+                  className="shadow-md bg-green-600 hover:bg-green-700 text-white" // Changed color to green
                   title="Принять выполненную работу и завершить задачу"
                 >
                   {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
                   Принять и завершить задачу
                 </Button>
               )}
-              {/* "Отправить на доработку исполнителю" button for customer is REMOVED.
-                  This action is now done via CommentForm by selecting status "Требует доработки от исполнителя".
-              */}
+              {/* Customer accepts executor's rework */}
+              {canCustomerAcceptExecutorRework && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleAcceptExecutorRework}
+                  disabled={isAnyActionPending || isAcceptingExecutorRework}
+                  className="shadow-md bg-blue-500 hover:bg-blue-600 text-white"
+                  title="Принять доработку исполнителя и вернуть задачу в работу"
+                >
+                  {isAcceptingExecutorRework ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                  Принять доработку исполнителя
+                </Button>
+              )}
             </>
           )}
 
           {/* === Executor Actions === */}
           {isExecutor && (
             <>
-              {/* "Запросить доработку от заказчика" button for executor is REMOVED.
-                  This action is now done via CommentForm by selecting status "Требует доработки от заказчика".
-              */}
-
               {/* Executor accepts Customer's rework/info */}
               {canExecutorAcceptCustomerRework && ( 
                  <Button
                   variant="default"
                   size="sm"
-                  onClick={handleAcceptRework}
+                  onClick={handleAcceptCustomerRework} // Changed handler name
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-500 hover:bg-green-600 text-white"
                   title="Принять доработку от заказчика и продолжить работу"
@@ -334,7 +358,7 @@ export default function TaskDetailPage() {
                   size="sm"
                   onClick={handleMarkTaskAsCompleted} 
                   disabled={isAnyActionPending}
-                  className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+                  className="shadow-md bg-teal-600 hover:bg-teal-700 text-white" // Changed color to teal
                   title="Отметить задачу как выполненную"
                 >
                   {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
@@ -343,7 +367,6 @@ export default function TaskDetailPage() {
               )}
             </>
           )}
-          {/* "Завершить доработку" buttons are removed as this is handled by comment form + "newStatusToSet" = "Доработано" */}
         </CardFooter>
       </Card>
 
@@ -377,4 +400,5 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+
 

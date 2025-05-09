@@ -20,7 +20,8 @@ export type TaskStatus =
   | "В работе"
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
-  | "Доработано" 
+  | "Доработано заказчиком" // New status
+  | "Доработано исполнителем" // New status
   | "Ожидает проверку" // Executor has marked task as done, customer to review
   | "Завершено"; // Customer has accepted the work / Task is fully completed
 
@@ -53,6 +54,7 @@ export interface Comment {
   text: string;
   attachments: CommentAttachment[];
   timestamp: string; // ISO date string
+  isSystemMessage?: boolean; // Added to differentiate system messages
 }
 
 export interface SessionPayload { // For secure HTTP-only cookie session
@@ -82,6 +84,7 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+
 
 
 

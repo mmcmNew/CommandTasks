@@ -65,10 +65,11 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     text,
     attachments: uploadedAttachments,
     timestamp: new Date().toISOString(),
+    isSystemMessage: false, // Regular user comment
   };
 
   try {
-    await addComment(newComment); // Add the main comment first
+    await addComment(newComment); // Add the main user comment first
 
     let statusUpdateMessage = "";
     if (newStatusToSet) {
@@ -83,15 +84,14 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
 
       // Authorization for status change
       let authorizedToChange = false;
-      if (newStatusToSet === "Доработано") {
+      if (newStatusToSet === "Доработано заказчиком") {
         if (task.status === "Требует доработки от заказчика" && task.customerId === currentUserId) authorizedToChange = true;
+      } else if (newStatusToSet === "Доработано исполнителем") {
         if (task.status === "Требует доработки от исполнителя" && task.executorId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от исполнителя") {
-        if ((task.status === "В работе" || task.status === "Доработано" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от заказчика") {
-        if ((task.status === "В работе" || task.status === "Доработано") && task.executorId === currentUserId) authorizedToChange = true;
-      } else {
-        // For other statuses, rely on dedicated actions if any, or specific logic.
+      } else if (newStatusToSet === "Требует доработки от исполнителя") { // Customer requests rework from executor
+        if ((task.status === "В работе" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
+      } else if (newStatusToSet === "Требует доработки от заказчика") { // Executor requests rework from customer
+        if (task.status === "В работе" && task.executorId === currentUserId) authorizedToChange = true;
       }
 
 
@@ -108,6 +108,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
             text: statusChangeCommentText,
             attachments: [],
             timestamp: new Date().toISOString(),
+            isSystemMessage: true, // This is a system message
         };
         await addComment(statusChangeComment); // Add separate comment for status change log
       } else if (oldStatus === newStatusToSet) {
@@ -124,3 +125,4 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'Could not add comment or update status.' };
   }
 }
+
