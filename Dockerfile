@@ -19,7 +19,6 @@ COPY . .
 # Собираем проект
 RUN npm run build
 
-
 # Этап 2: Финальный образ
 FROM node:20-alpine
 

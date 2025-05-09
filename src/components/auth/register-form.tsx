@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,18 +14,23 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { UserPlus } from 'lucide-react';
 import type { UserRoleObject } from '@/types';
 
 interface RegisterFormProps {
-  userRoles: UserRoleObject[]; // Prop to receive roles
+  userRoles: UserRoleObject[];
 }
 
-export default function RegisterForm({ userRoles }: RegisterFormProps) {
+export default function RegisterForm({ userRoles: allUserRoles }: RegisterFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Filter out the 'администратор' role
+  const availableRoles = useMemo(() => {
+    return allUserRoles.filter(role => role.name !== 'администратор');
+  }, [allUserRoles]);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(RegisterSchema),
@@ -32,12 +38,26 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
       name: '',
       email: '',
       password: '',
-      roleId: userRoles.length > 0 ? userRoles[0].id : '', // Default to first role's ID
+      // Default to first available non-admin role's ID
+      roleId: availableRoles.length > 0 ? availableRoles[0].id : '',
     },
   });
 
   async function onSubmit(data: RegisterFormData) {
     setIsLoading(true);
+    // Ensure the selected roleId is not for an administrator role,
+    // although filtering in the Select dropdown should prevent this.
+    const selectedRole = availableRoles.find(role => role.id === data.roleId);
+    if (!selectedRole || selectedRole.name === 'администратор') {
+      toast({
+        title: 'Registration Failed',
+        description: 'Invalid role selection.',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await registerUser(data);
       if (result.success) {
@@ -45,7 +65,7 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
           title: 'Registration Successful',
           description: result.success,
         });
-        router.push('/login'); // Redirect to login after successful registration
+        router.push('/login');
       } else {
         toast({
           title: 'Registration Failed',
@@ -116,7 +136,7 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
             />
             <FormField
               control={form.control}
-              name="roleId" // Changed to roleId
+              name="roleId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
@@ -127,11 +147,16 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {userRoles.map((role) => (
+                      {availableRoles.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                         </SelectItem>
                       ))}
+                      {availableRoles.length === 0 && (
+                        <SelectItem value="" disabled>
+                          No roles available for registration.
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -140,7 +165,7 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || availableRoles.length === 0}>
               {isLoading ? 'Registering...' : 'Register'}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
@@ -155,3 +180,4 @@ export default function RegisterForm({ userRoles }: RegisterFormProps) {
     </Card>
   );
 }
+
