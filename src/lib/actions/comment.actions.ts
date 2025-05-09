@@ -70,10 +70,11 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     await addComment(newComment); 
 
     let statusUpdateMessage = "";
-    if (newStatusToSet) { // newStatusToSet is already transformed, so "none" becomes undefined here
+    if (newStatusToSet) { 
       const task = await getTaskById(taskId);
-      const user = await getUserById(currentUserId);
+      const user = await getUserById(currentUserId); // User object now includes roleName
       const userName = user ? user.name : 'Система';
+      const userRoleName = user ? user.roleName : null;
       
       if (!task) {
          return { error: 'Task not found for status update.' };
@@ -81,19 +82,23 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
       const oldStatus = task.status;
 
       let authorizedToChange = false;
-      if (newStatusToSet === "Доработано заказчиком") {
-        if (task.status === "Требует доработки от заказчика" && task.customerId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Доработано исполнителем") {
-        if (task.status === "Требует доработки от исполнителя" && task.executorId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от исполнителя") { 
-        if ((task.status === "В работе" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от заказчика") { 
-        if (task.status === "В работе" && task.executorId === currentUserId) authorizedToChange = true;
+      if (userRoleName === 'администратор') {
+        authorizedToChange = true;
+      } else {
+        // Existing logic for customer/executor
+        if (newStatusToSet === "Доработано заказчиком") {
+          if (task.status === "Требует доработки от заказчика" && task.customerId === currentUserId) authorizedToChange = true;
+        } else if (newStatusToSet === "Доработано исполнителем") {
+          if (task.status === "Требует доработки от исполнителя" && task.executorId === currentUserId) authorizedToChange = true;
+        } else if (newStatusToSet === "Требует доработки от исполнителя") { 
+          if ((task.status === "В работе" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
+        } else if (newStatusToSet === "Требует доработки от заказчика") { 
+          if (task.status === "В работе" && task.executorId === currentUserId) authorizedToChange = true;
+        }
       }
 
 
       if (authorizedToChange && oldStatus !== newStatusToSet) {
-        // First status change (user initiated)
         task.status = newStatusToSet;
         await updateTask(task);
         
@@ -110,10 +115,9 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
         await addComment(firstStatusChangeComment);
         statusUpdateMessage = ` Статус задачи изменен на "${newStatusToSet}".`;
 
-        // Auto-transition if executor sets "Доработано исполнителем"
-        if (newStatusToSet === "Доработано исполнителем" && task.executorId === currentUserId) {
+        if (newStatusToSet === "Доработано исполнителем" && task.executorId === currentUserId && userRoleName !== 'администратор') {
             const autoTransitionStatus: TaskStatus = "Ожидает проверку";
-            const intermediateStatus = task.status; // This is "Доработано исполнителем"
+            const intermediateStatus = task.status; 
             
             task.status = autoTransitionStatus;
             await updateTask(task);

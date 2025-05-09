@@ -17,6 +17,7 @@ import { useState, useMemo } from 'react';
 import { Send, Loader2, Paperclip, Edit } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import type { TaskStatus } from '@/types';
+import { TASK_STATUSES } from '@/lib/constants';
 
 interface CommentFormProps {
   taskId: string;
@@ -41,9 +42,13 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
   });
 
   const availableStatusChanges = useMemo(() => {
-    const options: TaskStatus[] = [];
-    if (!currentUser) return options;
+    if (!currentUser) return [];
 
+    if (currentUser.roleName === 'администратор') {
+      return TASK_STATUSES.filter(status => status !== taskStatus); // Admin can change to any status (except current)
+    }
+
+    const options: TaskStatus[] = [];
     const isCustomer = currentUser.id === taskCustomerId;
     const isExecutor = currentUser.id === taskExecutorId;
 
@@ -70,7 +75,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
       options.push("Требует доработки от исполнителя");
     }
     
-    return options;
+    return options.filter(status => status !== taskStatus);
   }, [currentUser, taskStatus, taskCustomerId, taskExecutorId]);
 
 
@@ -202,6 +207,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
     </Form>
   );
 }
+
 
 
 

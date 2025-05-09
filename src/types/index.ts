@@ -1,5 +1,5 @@
 
-export type UserRoleName = "заказчик" | "исполнитель";
+export type UserRoleName = "заказчик" | "исполнитель" | "администратор";
 
 export interface UserRoleObject {
   id: string;
@@ -84,6 +84,7 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+
 
 
 
