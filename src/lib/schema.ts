@@ -40,7 +40,7 @@ export const TaskSchema = z.object({
   cost: z.coerce.number().positive({ message: "Cost must be a positive number." }).nullable().optional(),
   customerId: z.string().uuid({ message: "Invalid customer ID." }),
   executorId: z.string().uuid({ message: "Invalid executor ID." }).nullable().optional(),
-  categoryId: z.string({ required_error: "Category is required." }).min(1, { message: "Category is required."}).nullable().optional(), // Added categoryId
+  categoryId: z.string().uuid({ message: "Invalid category ID."}).nullable().optional(),
   attachments: fileListSchema,
 });
 

@@ -43,13 +43,15 @@ interface TaskFormProps {
   isEditMode?: boolean;
 }
 
+const UNCATEGORIZED_VALUE = "__uncategorized__";
+
 export default function TaskForm({ task, users, potentialCustomers, potentialExecutors, taskCategories, isEditMode = false }: TaskFormProps) {
   const { toast } = useToast();
   const router = useRouter(); 
   const [isLoading, setIsLoading] = useState(false);
   const { currentUser } = useAuth();
 
-  const defaultCategoryId = taskCategories.find(cat => cat.name === "Прочее")?.id || (taskCategories.length > 0 ? taskCategories[0].id : '');
+  const defaultCategoryId = taskCategories.find(cat => cat.name === "Прочее")?.id || (taskCategories.length > 0 ? taskCategories[0].id : null);
 
 
   const form = useForm<TaskFormData>({
@@ -77,7 +79,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         cost: task.cost || null,
         customerId: task.customerId || '',
         executorId: task.executorId || null,
-        categoryId: task.categoryId || defaultCategoryId,
+        categoryId: task.categoryId === undefined ? null : task.categoryId, // Ensure null if undefined
         attachments: [], // Attachments are handled via FormData, not pre-filled here for editing
       });
     } else if (!isEditMode) {
@@ -112,8 +114,23 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         formData.append(key, value.toISOString());
       } else if (value !== null && value !== undefined) {
         formData.append(key, String(value));
+      } else if (key === 'categoryId' && value === null) {
+        // Ensure null categoryId is handled explicitly if needed by backend, or omit if empty string is preferred
+        // For now, String(value) would be "null", which might be undesirable.
+        // If backend expects null for no category, this is fine.
+        // If backend expects omission or empty string, adjust here.
+        // Based on schema, it's optional and can be null.
+        // Let's ensure an actual null doesn't become "null" string.
+        // The current logic `value !== null && value !== undefined` correctly omits nulls from FormData.
       }
     });
+
+    // If categoryId is null, we might not want to append it or append an empty string
+    // depending on backend. Current logic omits it if value is null.
+    // If schema has `categoryId: z.string().nullable().optional()`,
+    // and server expects null, then data.categoryId will be null.
+    // `formData.append('categoryId', null)` might not be what you want.
+    // The current Object.entries loop correctly skips appending null values.
 
     try {
       let result;
@@ -283,8 +300,8 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
               <FormItem>
                 <FormLabel className="flex items-center"><Tags className="mr-2 h-4 w-4 text-muted-foreground" />Category</FormLabel>
                 <Select 
-                  onValueChange={(value) => field.onChange(value === "null" || value === "" ? null : value)} 
-                  value={field.value || ""}
+                  onValueChange={(value) => field.onChange(value === UNCATEGORIZED_VALUE ? null : value)} 
+                  value={field.value === null || field.value === undefined ? UNCATEGORIZED_VALUE : field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -292,7 +309,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Uncategorized</SelectItem>
+                    <SelectItem value={UNCATEGORIZED_VALUE}>Uncategorized</SelectItem>
                     {taskCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -338,7 +355,10 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Executor (Optional)</FormLabel>
-                <Select onValueChange={(value) => field.onChange(value === "none" || value === "" ? null : value)} value={field.value || "none"}>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                  value={field.value === null || field.value === undefined ? "none" : field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Assign an executor" />
@@ -415,3 +435,4 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
     </Form>
   );
 }
+
