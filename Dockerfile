@@ -1,20 +1,35 @@
-# Используем базовый образ Node.js
-FROM node:alpine
+# Этап 1: Сборка
+FROM node:20-alpine AS builder
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем package.json и package-lock.json для установки зависимостей
+# Устанавливаем переменные окружения
+ENV NODE_ENV=production
+
+# Копируем package.json и lock-файл
 COPY package*.json ./
 
-# Устанавливаем зависимости
-RUN npm ci
+# Устанавливаем только production-зависимости (если нужны dev — убери флаг)
+RUN npm ci --omit=dev
 
-# Копируем остальные файлы проекта
+# Копируем остальной код
 COPY . .
 
-# Собираем приложение
+# Собираем проект
 RUN npm run build
 
-# Определяем команду для запуска приложения
+
+# Этап 2: Финальный образ
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Устанавливаем переменные окружения
+ENV NODE_ENV=production
+
+# Копируем только собранный билд и нужные файлы из builder
+COPY --from=builder /app ./
+
+# Определяем команду запуска
 CMD ["npm", "start"]
