@@ -19,16 +19,14 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'User mismatch. Action forbidden.' };
   }
   
-  const newStatusToSetFromFormValue = formData.get('newStatusToSet'); // string | File | null
+  const newStatusToSetFromFormValue = formData.get('newStatusToSet');
 
   const rawFormData = {
     text: formData.get('text') as string,
     attachments: formData.getAll('attachments') as File[],
-    // If newStatusToSetFromFormValue is null (field not in FormData), treat as undefined for optional schema.
-    // Otherwise, pass the value (which could be "none" or a TaskStatus) to the schema.
-    newStatusToSet: newStatusToSetFromFormValue === null 
+    newStatusToSet: newStatusToSetFromFormValue === null || newStatusToSetFromFormValue === "none"
                       ? undefined 
-                      : newStatusToSetFromFormValue as TaskStatus | "none",
+                      : newStatusToSetFromFormValue as TaskStatus,
   };
 
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
@@ -65,14 +63,14 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     text,
     attachments: uploadedAttachments,
     timestamp: new Date().toISOString(),
-    isSystemMessage: false, // Regular user comment
+    isSystemMessage: false,
   };
 
   try {
-    await addComment(newComment); // Add the main user comment first
+    await addComment(newComment); 
 
     let statusUpdateMessage = "";
-    if (newStatusToSet) {
+    if (newStatusToSet) { // newStatusToSet is already transformed, so "none" becomes undefined here
       const task = await getTaskById(taskId);
       const user = await getUserById(currentUserId);
       const userName = user ? user.name : 'Система';
@@ -82,47 +80,70 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
       }
       const oldStatus = task.status;
 
-      // Authorization for status change
       let authorizedToChange = false;
       if (newStatusToSet === "Доработано заказчиком") {
         if (task.status === "Требует доработки от заказчика" && task.customerId === currentUserId) authorizedToChange = true;
       } else if (newStatusToSet === "Доработано исполнителем") {
         if (task.status === "Требует доработки от исполнителя" && task.executorId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от исполнителя") { // Customer requests rework from executor
+      } else if (newStatusToSet === "Требует доработки от исполнителя") { 
         if ((task.status === "В работе" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
-      } else if (newStatusToSet === "Требует доработки от заказчика") { // Executor requests rework from customer
+      } else if (newStatusToSet === "Требует доработки от заказчика") { 
         if (task.status === "В работе" && task.executorId === currentUserId) authorizedToChange = true;
       }
 
 
       if (authorizedToChange && oldStatus !== newStatusToSet) {
+        // First status change (user initiated)
         task.status = newStatusToSet;
         await updateTask(task);
-        statusUpdateMessage = ` Статус задачи изменен с "${oldStatus}" на "${newStatusToSet}" пользователем ${userName}.`;
         
-        const statusChangeCommentText = `Статус задачи изменен с "${oldStatus}" на "${newStatusToSet}" пользователем ${userName} при добавлении комментария.`;
-        const statusChangeComment: Comment = {
+        const firstStatusChangeCommentText = `Статус задачи изменен с "${oldStatus}" на "${newStatusToSet}" пользователем ${userName} при добавлении комментария.`;
+        const firstStatusChangeComment: Comment = {
             id: uuidv4(),
             taskId,
             authorId: currentUserId, 
-            text: statusChangeCommentText,
+            text: firstStatusChangeCommentText,
             attachments: [],
             timestamp: new Date().toISOString(),
-            isSystemMessage: true, // This is a system message
+            isSystemMessage: true,
         };
-        await addComment(statusChangeComment); // Add separate comment for status change log
+        await addComment(firstStatusChangeComment);
+        statusUpdateMessage = ` Статус задачи изменен на "${newStatusToSet}".`;
+
+        // Auto-transition if executor sets "Доработано исполнителем"
+        if (newStatusToSet === "Доработано исполнителем" && task.executorId === currentUserId) {
+            const autoTransitionStatus: TaskStatus = "Ожидает проверку";
+            const intermediateStatus = task.status; // This is "Доработано исполнителем"
+            
+            task.status = autoTransitionStatus;
+            await updateTask(task);
+
+            const autoTransitionCommentText = `Статус задачи автоматически изменен с "${intermediateStatus}" на "${autoTransitionStatus}" после доработки исполнителем.`;
+            const autoTransitionComment: Comment = {
+                id: uuidv4(),
+                taskId,
+                authorId: currentUserId, 
+                text: autoTransitionCommentText,
+                attachments: [],
+                timestamp: new Date().toISOString(),
+                isSystemMessage: true,
+            };
+            await addComment(autoTransitionComment);
+            statusUpdateMessage += ` Затем статус автоматически обновлен на "${autoTransitionStatus}".`;
+        }
+
       } else if (oldStatus === newStatusToSet) {
-        // No actual status change, do nothing extra
+        // No actual status change selected by user
       } else if (!authorizedToChange) {
-         return { error: `User ${userName} is not authorized to change status to "${newStatusToSet}" from "${oldStatus}" or the transition is not allowed.`};
+         return { error: `User ${userName} не авторизован для изменения статуса на "${newStatusToSet}" с "${oldStatus}" или переход не разрешен.`};
       }
     }
 
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Comment added successfully.${statusUpdateMessage}` };
+    return { success: `Комментарий успешно добавлен.${statusUpdateMessage}` };
   } catch (error) {
     console.error('Error during comment addition or status update:', error);
-    return { error: 'Could not add comment or update status.' };
+    return { error: 'Не удалось добавить комментарий или обновить статус.' };
   }
 }
 
