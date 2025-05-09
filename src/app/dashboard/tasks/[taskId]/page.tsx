@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -309,7 +310,7 @@ export default function TaskDetailPage() {
                   size="sm"
                   onClick={handleAcceptCompletedTask} 
                   disabled={isAnyActionPending}
-                  className="shadow-md bg-green-600 hover:bg-green-700 text-white" // Changed color to green
+                  className="shadow-md bg-green-600 hover:bg-green-700 text-white"
                   title="Принять выполненную работу и завершить задачу"
                 >
                   {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
@@ -341,7 +342,7 @@ export default function TaskDetailPage() {
                  <Button
                   variant="default"
                   size="sm"
-                  onClick={handleAcceptCustomerRework} // Changed handler name
+                  onClick={handleAcceptCustomerRework} 
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-500 hover:bg-green-600 text-white"
                   title="Принять доработку от заказчика и продолжить работу"
@@ -358,7 +359,7 @@ export default function TaskDetailPage() {
                   size="sm"
                   onClick={handleMarkTaskAsCompleted} 
                   disabled={isAnyActionPending}
-                  className="shadow-md bg-teal-600 hover:bg-teal-700 text-white" // Changed color to teal
+                  className="shadow-md bg-teal-600 hover:bg-teal-700 text-white"
                   title="Отметить задачу как выполненную"
                 >
                   {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
@@ -400,5 +401,6 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+
 
 
