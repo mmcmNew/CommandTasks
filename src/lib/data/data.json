@@ -77,6 +77,34 @@
       "attachments": [],
       "customerId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
       "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8"
+    },
+    {
+      "id": "416653f9-ecfa-457d-900f-8edde56502d0",
+      "title": "Test Task",
+      "description": "Just Do It",
+      "status": "Новая",
+      "dueDate": null,
+      "cost": null,
+      "authorId": "01010101-0101-0101-0101-010101010101",
+      "createdAt": "2025-05-09T04:04:07.152Z",
+      "attachments": [],
+      "customerId": "01010101-0101-0101-0101-010101010101",
+      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "categoryId": "cat-other"
+    },
+    {
+      "id": "4306a112-bf3a-4a79-b6cf-50c85c98a11b",
+      "title": "Tester",
+      "description": "Test new Tasks",
+      "status": "Требует доработки от исполнителя",
+      "dueDate": "2025-05-09T19:00:00.000Z",
+      "cost": 25,
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "createdAt": "2025-05-09T04:06:51.265Z",
+      "attachments": [],
+      "customerId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "categoryId": "cat-design"
     }
   ],
   "comments": [
@@ -566,6 +594,48 @@
       "attachments": [],
       "timestamp": "2025-05-09T03:22:12.151Z",
       "isSystemMessage": true
+    },
+    {
+      "id": "2ee84f5c-ad74-4cf2-9e18-b4c0299442ec",
+      "taskId": "4306a112-bf3a-4a79-b6cf-50c85c98a11b",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Заказчик Михаил назначил исполнителя user2 для задачи. Условия: стоимость - $25, срок - 5/9/2025. Статус задачи изменен с \"Новая\" на \"В работе\".",
+      "attachments": [],
+      "timestamp": "2025-05-09T04:07:38.375Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "b8cbb680-4f98-4346-bf23-947673a6a6bb",
+      "taskId": "4306a112-bf3a-4a79-b6cf-50c85c98a11b",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Исполнитель user2 отметил задачу как выполненную. Статус изменен с \"В работе\" на \"Ожидает проверку\". Ожидается проверка заказчиком.",
+      "attachments": [],
+      "timestamp": "2025-05-09T04:08:49.283Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "a8a56d48-e096-4d02-89a7-0ddc7fec3ba2",
+      "taskId": "4306a112-bf3a-4a79-b6cf-50c85c98a11b",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Rework",
+      "attachments": [
+        {
+          "path": "/uploads/4306a112-bf3a-4a79-b6cf-50c85c98a11b/comments/a8a56d48-e096-4d02-89a7-0ddc7fec3ba2/______________2025-05-09_040708.png",
+          "name": "Снимок экрана 2025-05-09 040708.png",
+          "type": "image"
+        }
+      ],
+      "timestamp": "2025-05-09T04:09:21.538Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "ffed2d43-ea76-49fd-b395-273573f466af",
+      "taskId": "4306a112-bf3a-4a79-b6cf-50c85c98a11b",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Статус задачи изменен с \"Ожидает проверку\" на \"Требует доработки от исполнителя\" пользователем Михаил при добавлении комментария.",
+      "attachments": [],
+      "timestamp": "2025-05-09T04:09:21.624Z",
+      "isSystemMessage": true
     }
   ],
   "userRoles": [
@@ -582,7 +652,16 @@
       "name": "администратор"
     }
   ],
-  "taskProposals": [],
+  "taskProposals": [
+    {
+      "id": "2dfc95ad-e090-49f6-92cc-ab0c369b4f61",
+      "taskId": "416653f9-ecfa-457d-900f-8edde56502d0",
+      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "proposedCost": 12,
+      "proposedDueDate": "2025-05-09T19:00:00.000Z",
+      "timestamp": "2025-05-09T04:05:14.014Z"
+    }
+  ],
   "taskCategories": [
     {
       "id": "cat-dev",

@@ -16,14 +16,15 @@ export interface User {
 
 export type TaskStatus = 
   | "Новая" 
-  | "Ожидает оценку" 
+  | "Ожидает оценку"
+  | "Ожидает выбор исполнителя" // New display status
   | "В работе"
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
   | "Доработано заказчиком" 
   | "Доработано исполнителем" 
   | "Ожидает проверку" 
-  | "Принята. Ожидает подтверждение оплаты" // New status
+  | "Принята. Ожидает подтверждение оплаты"
   | "Завершено";        
 
 export interface TaskAttachment {
@@ -92,3 +93,4 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+

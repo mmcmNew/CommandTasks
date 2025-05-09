@@ -20,6 +20,10 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'secondary';
       statusColorClass = 'bg-yellow-500 text-white';
       break;
+    case 'Ожидает выбор исполнителя': // New case
+      variant = 'default'; 
+      statusColorClass = 'bg-purple-500 text-white'; // Distinct color for this display status
+      break;
     case 'Требует доработки от заказчика':
       variant = 'outline';
       statusColorClass = 'border-orange-500 text-orange-500';
@@ -44,9 +48,9 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'default';
       statusColorClass = 'bg-blue-500 text-white'; 
       break;
-    case 'Принята. Ожидает подтверждение оплаты': // New status
+    case 'Принята. Ожидает подтверждение оплаты':
       variant = 'default';
-      statusColorClass = 'bg-orange-400 text-white'; // Example: Orange for awaiting payment
+      statusColorClass = 'bg-orange-400 text-white';
       break;
     case 'Завершено':
       variant = 'secondary';
@@ -63,3 +67,4 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
     </Badge>
   );
 }
+

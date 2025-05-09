@@ -18,14 +18,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard, Tags, Edit // Added Tags & Edit
+  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard, Tags, Edit
 } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState, useTransition, useCallback } from 'react';
-import type { Comment as CommentType, User as UserType, Task as TaskType, EnrichedTaskProposal, UserRoleObject, UserRoleName, TaskCategory } from '@/types';
+import type { Comment as CommentType, User as UserType, Task as TaskType, EnrichedTaskProposal, UserRoleObject, UserRoleName, TaskCategory, TaskStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -190,6 +190,17 @@ export default function TaskDetailPage() {
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
+  let displayStatus: TaskStatus = taskDetails.status;
+  if (
+    (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку") &&
+    !taskDetails.executorId &&
+    taskProposals.length > 0 &&
+    currentUser.id === taskDetails.customerId // Only show this derived status to the customer
+  ) {
+    displayStatus = "Ожидает выбор исполнителя";
+  }
+
+
   const isCustomer = currentUser.id === taskDetails.customerId;
   const isExecutor = currentUser.id === taskDetails.executorId;
   const isAdmin = currentUser.roleName === 'администратор';
@@ -220,7 +231,7 @@ export default function TaskDetailPage() {
               <CardDescription>Created on {formatDate(taskDetails.createdAt)} by {taskDetails.authorName}</CardDescription>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <TaskStatusBadge status={taskDetails.status} className="px-3 py-1 text-sm"/>
+              <TaskStatusBadge status={displayStatus} className="px-3 py-1 text-sm"/>
               {isAdmin && (
                 <Link href={`/dashboard/tasks/${taskDetails.id}/edit`} passHref>
                   <Button variant="outline" size="sm" className="shadow-sm">
@@ -392,7 +403,7 @@ export default function TaskDetailPage() {
         taskId={taskDetails.id} 
         comments={comments} 
         users={users}
-        taskStatus={taskDetails.status}
+        taskStatus={taskDetails.status} // Pass original task status for comment form logic
         taskCustomerId={taskDetails.customerId}
         taskExecutorId={taskDetails.executorId}
         onCommentAdded={fetchData} 
@@ -400,3 +411,4 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+
