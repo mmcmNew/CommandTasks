@@ -1,0 +1,32 @@
+dockerignore
+# Ignore files and directories that are not needed in the Docker image
+
+# Git ignore
+.git
+.gitignore
+
+# Node modules - these are installed in the builder stage
+node_modules
+
+# Next.js build output - copied from the builder stage
+.next
+
+# Local development files
+.env.local
+.env.*.local
+
+# Vercel related files (if you use Vercel)
+.vercel
+
+# Other potential build or temporary directories
+build
+dist
+tmp
+
+# Logs
+*.log
+
+# npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
