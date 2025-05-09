@@ -39,7 +39,7 @@
       "id": "01010101-0101-0101-0101-010101010101",
       "name": "Administrator",
       "email": "admin@admin.com",
-      "passwordHash": "$2a$10$gL3rA7mS4Z1jK9p.O/xX.u9sLg8sU5bC7dE2fG4hJ6iK0lL3mM2nK",
+      "passwordHash": "$2a$10$1xnMhRnIjFNUHZx4GYwX.u005mUGKdvH.Np2lJbA3aYy/0qZPbJma",
       "roleId": "a1b2c3d4-e5f6-7890-1234-abcdef123456"
     }
   ],
@@ -48,7 +48,7 @@
       "id": "49f6891a-623e-4865-9a7f-8cbac1837034",
       "title": "Исправить ссылку на курс русского языка",
       "description": "На главной странице ссылка Русский язык без ошибок: от А до Я ведет на неправильную страницу",
-      "status": "Ожидает проверку",
+      "status": "Завершено",
       "dueDate": "2025-05-08T19:00:00.000Z",
       "cost": 500,
       "customerId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
@@ -62,6 +62,45 @@
           "type": "image"
         }
       ]
+    },
+    {
+      "id": "0d702eec-6061-41d9-84e6-0846692d65d2",
+      "title": "Проверить работу системы",
+      "description": "Изменение статусов и правильно ли работают комментарии",
+      "status": "Новая",
+      "dueDate": null,
+      "cost": null,
+      "customerId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "executorId": null,
+      "authorId": "01010101-0101-0101-0101-010101010101",
+      "createdAt": "2025-05-09T03:06:29.230Z",
+      "attachments": []
+    },
+    {
+      "id": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "title": "Проверить работу системы",
+      "description": "Установку статусов и найм исполнителей",
+      "status": "Завершено",
+      "dueDate": "2025-05-10T19:00:00.000Z",
+      "cost": 120,
+      "customerId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "createdAt": "2025-05-09T03:09:50.530Z",
+      "attachments": []
+    },
+    {
+      "id": "de96ad35-d1b2-45c8-b2e2-dfad213cf685",
+      "title": "dfsgasdfg",
+      "description": "dfasdfasdfasdfasdf",
+      "status": "Новая",
+      "dueDate": null,
+      "cost": null,
+      "customerId": "01010101-0101-0101-0101-010101010101",
+      "executorId": null,
+      "authorId": "01010101-0101-0101-0101-010101010101",
+      "createdAt": "2025-05-09T03:12:19.691Z",
+      "attachments": []
     }
   ],
   "comments": [
@@ -347,7 +386,157 @@
       "attachments": [],
       "timestamp": "2025-05-09T03:01:29.911Z",
       "isSystemMessage": true
+    },
+    {
+      "id": "55edea3f-8973-4bb5-9e1b-4d133e14fc9b",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Go go go",
+      "attachments": [
+        {
+          "path": "/uploads/49f6891a-623e-4865-9a7f-8cbac1837034/comments/55edea3f-8973-4bb5-9e1b-4d133e14fc9b/______________2025-05-09_012123.png",
+          "name": "Снимок экрана 2025-05-09 012123.png",
+          "type": "image"
+        }
+      ],
+      "timestamp": "2025-05-09T03:02:09.967Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "c6bc3b54-59bc-4745-bae5-0c8816908f24",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Статус задачи изменен с \"Ожидает проверку\" на \"Требует доработки от исполнителя\" пользователем Михаил при добавлении комментария.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:02:09.991Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "a1de7a34-3666-4242-ac5c-a3c97a4891ea",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Go back",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:02:46.782Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "1e8c31f5-eecf-405c-9acd-d1771b252feb",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Статус задачи изменен с \"Требует доработки от исполнителя\" на \"Доработано исполнителем\" пользователем user2 при добавлении комментария.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:02:46.816Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "187f6e92-d6ee-4fcc-b848-6c55e5cae845",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Статус задачи автоматически изменен с \"Доработано исполнителем\" на \"Ожидает проверку\" после доработки исполнителем.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:02:46.841Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "e2267fb1-0dcb-4c8d-87c3-578a8b4d3ecc",
+      "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Заказчик Михаил принял выполненную работу. Статус изменен с \"Ожидает проверку\" на \"Завершено\". Задача завершена.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:03:10.342Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "6e3ebff0-e3ca-40b9-905f-0acd37e74e23",
+      "taskId": "0d702eec-6061-41d9-84e6-0846692d65d2",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "First",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:07:55.876Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "a6634703-e781-4455-b744-4c491d669106",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Заказчик Михаил назначил исполнителя user2 для задачи. Условия: стоимость - $120, срок - 5/10/2025. Статус задачи изменен с \"Новая\" на \"В работе\".",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:10:58.803Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "d7749441-d929-478e-b137-44c4282f54f9",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Исполнитель user2 отметил задачу как выполненную. Статус изменен с \"В работе\" на \"Ожидает проверку\". Ожидается проверка заказчиком.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:11:52.193Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "05bdfa27-596b-4a86-96ea-b3069c2dac40",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Сделай лучше",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:13:24.172Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "1c9934a3-dc71-4b27-9651-b48d3865e7df",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Статус задачи изменен с \"Ожидает проверку\" на \"Требует доработки от исполнителя\" пользователем Михаил при добавлении комментария.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:13:24.207Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "7abf9431-333d-4b02-8a07-4d30b831e9fb",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Сделал",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:14:00.808Z",
+      "isSystemMessage": false
+    },
+    {
+      "id": "0315c769-ec54-405b-a6e9-3149ac582eb2",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Статус задачи изменен с \"Требует доработки от исполнителя\" на \"Доработано исполнителем\" пользователем user2 при добавлении комментария.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:14:00.842Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "fba3cf75-62e6-4f43-9d27-220b42da692f",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "text": "Статус задачи автоматически изменен с \"Доработано исполнителем\" на \"Ожидает проверку\" после доработки исполнителем.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:14:00.863Z",
+      "isSystemMessage": true
+    },
+    {
+      "id": "459e138a-eaf9-4cb6-a0c5-4541873b2d44",
+      "taskId": "1e1e1240-2f4c-4e7d-a5e2-6348975fbf04",
+      "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
+      "text": "Заказчик Михаил принял выполненную работу. Статус изменен с \"Ожидает проверку\" на \"Завершено\". Задача завершена.",
+      "attachments": [],
+      "timestamp": "2025-05-09T03:14:29.984Z",
+      "isSystemMessage": true
     }
   ],
-  "taskProposals": []
+  "taskProposals": [
+    {
+      "id": "b36abeff-e454-4cbb-a26a-8aab68d67959",
+      "taskId": "0d702eec-6061-41d9-84e6-0846692d65d2",
+      "executorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
+      "proposedCost": 100,
+      "proposedDueDate": "2025-05-09T19:00:00.000Z",
+      "timestamp": "2025-05-09T03:07:42.954Z"
+    }
+  ]
 }

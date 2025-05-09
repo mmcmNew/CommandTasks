@@ -20,10 +20,11 @@ export type TaskStatus =
   | "В работе"
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
-  | "Доработано заказчиком" // New status
-  | "Доработано исполнителем" // New status
-  | "Ожидает проверку" // Executor has marked task as done, customer to review
-  | "Завершено"; // Customer has accepted the work / Task is fully completed
+  | "Доработано заказчиком" 
+  | "Доработано исполнителем" 
+  | "Ожидает проверку" 
+  | "Принята. Ожидает подтверждение оплаты" // New status
+  | "Завершено";        
 
 export interface TaskAttachment {
   path: string;
@@ -84,8 +85,3 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
-
-
-
-
-

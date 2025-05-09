@@ -75,11 +75,11 @@ export async function createTask(formData: FormData, authorId: string) {
     status,
     dueDate: dueDate ? dueDate.toISOString() : null,
     cost: cost ?? null,
-    customerId,
-    executorId: executorId ?? null,
     authorId: authorId, 
     createdAt: new Date().toISOString(),
     attachments: uploadedAttachments,
+    customerId, // Added customerId
+    executorId: executorId ?? null, // Ensured executorId is handled
   };
 
   try {
@@ -348,7 +348,6 @@ export async function markTaskAsCompletedByExecutorAction(taskId: string, curren
   if (!task) return { error: 'Task not found.' };
   if (task.executorId !== currentUserId) return { error: 'Only the assigned executor can mark this task as completed.' };
   
-  // Executor can mark task as complete if status is "В работе" or "Доработано заказчиком" (customer provided info, executor finishes)
   if (task.status !== 'В работе' && task.status !== 'Доработано заказчиком') { 
      return { error: `Task cannot be marked as completed from status: ${task.status}. It should be "В работе" or "Доработано заказчиком".` };
   }
@@ -397,11 +396,11 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
   const user = await getUserById(currentUserId);
   const userName = user ? user.name : 'Заказчик';
   const oldStatus = task.status;
-  const newStatus: TaskStatus = 'Завершено';
+  const newStatus: TaskStatus = 'Принята. Ожидает подтверждение оплаты'; // Changed status
 
   task.status = newStatus;
 
-  const commentText = `Заказчик ${userName} принял выполненную работу. Статус изменен с "${oldStatus}" на "${newStatus}". Задача завершена.`;
+  const commentText = `Заказчик ${userName} принял выполненную работу. Статус изменен с "${oldStatus}" на "${newStatus}". Ожидается подтверждение оплаты исполнителем.`; // Updated comment
   const newComment: Comment = {
     id: uuidv4(),
     taskId,
@@ -417,13 +416,56 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
-    revalidatePath('/dashboard/history');
-    return { success: `Task accepted. Status: ${newStatus}.` };
+    // No revalidatePath to history yet, as task is not fully "Завершено"
+    return { success: `Task accepted. Status: ${newStatus}. Awaiting payment confirmation.` }; // Updated success message
   } catch (error) {
     console.error('Error accepting task:', error);
     return { error: 'Could not accept task.' };
   }
 }
+
+export async function confirmPaymentByExecutorAction(taskId: string, currentUserId: string) {
+  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
+
+  const task = await getTaskById(taskId);
+  if (!task) return { error: 'Task not found.' };
+  if (task.executorId !== currentUserId) return { error: 'Only the assigned executor can confirm payment.' };
+  
+  if (task.status !== 'Принята. Ожидает подтверждение оплаты') {
+     return { error: `Payment cannot be confirmed from status: ${task.status}. It should be "Принята. Ожидает подтверждение оплаты".` };
+  }
+  
+  const user = await getUserById(currentUserId);
+  const userName = user ? user.name : 'Исполнитель';
+  const oldStatus = task.status;
+  const newStatus: TaskStatus = 'Завершено';
+
+  task.status = newStatus;
+
+  const commentText = `Исполнитель ${userName} подтвердил получение оплаты. Статус задачи изменен с "${oldStatus}" на "${newStatus}". Задача завершена.`;
+  const newComment: Comment = {
+    id: uuidv4(),
+    taskId,
+    authorId: currentUserId,
+    text: commentText,
+    attachments: [],
+    timestamp: new Date().toISOString(),
+    isSystemMessage: true,
+  };
+
+  try {
+    await updateTask(task);
+    await addComment(newComment);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    revalidatePath('/dashboard/history'); // Now revalidate history as task is completed
+    return { success: `Payment confirmed. Task is now completed. Status: ${newStatus}.` };
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    return { error: 'Could not confirm payment.' };
+  }
+}
+
 
 // Executor accepts customer's rework/info
 export async function acceptReworkAction(taskId: string, currentUserId: string) {
@@ -467,51 +509,6 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
   }
 }
 
-// Customer accepts executor's rework/info - THIS FUNCTION IS NO LONGER USED.
-// Its functionality is merged into acceptCompletedTaskByCustomerAction if the user decides to complete the task.
-// If the customer wants to send it back for *more* rework, they will use the comment form to change status.
-/*
-export async function acceptExecutorReworkByCustomerAction(taskId: string, currentUserId: string) {
-  if (!currentUserId) return { error: 'Unauthorized. User ID is missing.' };
-
-  const task = await getTaskById(taskId);
-  if (!task) return { error: 'Task not found.' };
-  if (task.customerId !== currentUserId) return { error: 'Only the customer can accept this rework.' };
-  
-  const user = await getUserById(currentUserId);
-  const userName = user ? user.name : 'Заказчик';
-  const oldStatus = task.status;
-  const newStatus: TaskStatus = 'В работе'; // Original: 'В работе'. User request implies 'Завершено' now.
-
-  if (oldStatus !== 'Доработано исполнителем') {
-     return { error: `Rework cannot be accepted from status: ${oldStatus}. It should be "Доработано исполнителем".` };
-  }
-
-  task.status = newStatus;
-  const commentText = `Заказчик ${userName} принял доработку от исполнителя. Статус задачи изменен с "${oldStatus}" на "${newStatus}".`;
-  const newComment: Comment = {
-    id: uuidv4(),
-    taskId,
-    authorId: currentUserId,
-    text: commentText,
-    attachments: [],
-    timestamp: new Date().toISOString(),
-    isSystemMessage: true,
-  };
-
-  try {
-    await updateTask(task);
-    await addComment(newComment);
-    revalidatePath('/dashboard');
-    revalidatePath(`/dashboard/tasks/${taskId}`);
-    return { success: `Executor's rework accepted. Task is now "${newStatus}".` };
-  } catch (error) {
-    console.error('Error accepting executor rework:', error);
-    return { error: 'Could not accept executor rework.' };
-  }
-}
-*/
-
 
 export async function getCompletedTasksAction() {
   try {
@@ -524,6 +521,3 @@ export async function getCompletedTasksAction() {
     return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
-
-
-

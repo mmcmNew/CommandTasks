@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { 
@@ -7,7 +6,7 @@ import {
   markTaskAsCompletedByExecutorAction,
   acceptCompletedTaskByCustomerAction,
   acceptReworkAction, // Executor accepts customer's rework
-  // acceptExecutorReworkByCustomerAction, // Customer accepts executor's rework - This action will be removed / merged
+  confirmPaymentByExecutorAction, // New action for executor to confirm payment
 } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
@@ -18,7 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp 
+  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard // Added CreditCard for payment
 } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
@@ -54,8 +53,8 @@ export default function TaskDetailPage() {
   
   const [isCompletingTask, startCompleteTaskTransition] = useTransition();
   const [isAcceptingTask, startAcceptTaskTransition] = useTransition();
-  const [isAcceptingRework, startAcceptReworkTransition] = useTransition(); // Executor accepts customer's rework
-  // const [isAcceptingExecutorRework, startAcceptExecutorReworkTransition] = useTransition(); // Customer accepts executor's rework - No longer needed
+  const [isAcceptingRework, startAcceptReworkTransition] = useTransition(); 
+  const [isConfirmingPayment, startConfirmPaymentTransition] = useTransition();
 
 
   const fetchData = useCallback(async () => {
@@ -134,7 +133,7 @@ export default function TaskDetailPage() {
     startAcceptTaskTransition(async () => {
       const result = await acceptCompletedTaskByCustomerAction(taskDetails.id, currentUser.id);
       if (result.success) {
-        toast({ title: "Task Accepted & Completed", description: result.success });
+        toast({ title: "Task Accepted", description: result.success });
         fetchData();
       } else {
         toast({ title: "Error", description: result.error || "Could not accept task.", variant: "destructive" });
@@ -142,7 +141,19 @@ export default function TaskDetailPage() {
     });
   };
 
-  // Executor accepts customer's rework
+  const handleConfirmPayment = () => {
+    if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
+    startConfirmPaymentTransition(async () => {
+      const result = await confirmPaymentByExecutorAction(taskDetails.id, currentUser.id);
+      if (result.success) {
+        toast({ title: "Payment Confirmed", description: result.success });
+        fetchData();
+      } else {
+        toast({ title: "Error", description: result.error || "Could not confirm payment.", variant: "destructive" });
+      }
+    });
+  };
+
   const handleAcceptCustomerRework = () => { 
     if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
     startAcceptReworkTransition(async () => {
@@ -156,7 +167,7 @@ export default function TaskDetailPage() {
     });
   };
   
-  const isAnyActionPending = isCompletingTask || isAcceptingTask || isAcceptingRework;
+  const isAnyActionPending = isCompletingTask || isAcceptingTask || isAcceptingRework || isConfirmingPayment;
 
 
   if (loading || authLoading) {
@@ -180,17 +191,13 @@ export default function TaskDetailPage() {
   const isCustomer = currentUser.id === taskDetails.customerId;
   const isExecutor = currentUser.id === taskDetails.executorId;
 
-  // Executor can mark task as complete if status is "В работе" or "Доработано заказчиком"
   const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано заказчиком");
   
-  // Customer can accept completed task if status is "Ожидает проверку" OR "Доработано исполнителем"
   const canCustomerAcceptCompletedTask = isCustomer && (taskDetails.status === "Ожидает проверку" || taskDetails.status === "Доработано исполнителем");
 
-  // Executor can accept customer's rework/info if status is "Доработано заказчиком"
   const canExecutorAcceptCustomerRework = taskDetails.status === "Доработано заказчиком" && isExecutor;
 
-  // Customer can accept executor's rework/info if status is "Доработано исполнителем" - This is now merged into canCustomerAcceptCompletedTask
-  // const canCustomerAcceptExecutorRework = taskDetails.status === "Доработано исполнителем" && isCustomer;
+  const canExecutorConfirmPayment = isExecutor && taskDetails.status === "Принята. Ожидает подтверждение оплаты";
 
 
   const showProposalForm = currentUserRole === 'исполнитель' && 
@@ -289,7 +296,6 @@ export default function TaskDetailPage() {
           {/* === Customer Actions === */}
           {isCustomer && (
             <>
-              {/* Customer accepts completed task or executor's rework, finalizing the task */}
               {canCustomerAcceptCompletedTask && (
                 <Button
                   variant="default"
@@ -297,10 +303,10 @@ export default function TaskDetailPage() {
                   onClick={handleAcceptCompletedTask} 
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-600 hover:bg-green-700 text-white"
-                  title="Принять выполненную работу и завершить задачу"
+                  title="Принять выполненную работу. Статус изменится на 'Принята. Ожидает подтверждение оплаты'."
                 >
                   {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
-                  Принять работу и завершить задачу
+                  Принять работу
                 </Button>
               )}
             </>
@@ -309,7 +315,6 @@ export default function TaskDetailPage() {
           {/* === Executor Actions === */}
           {isExecutor && (
             <>
-              {/* Executor accepts Customer's rework/info */}
               {canExecutorAcceptCustomerRework && ( 
                  <Button
                   variant="default"
@@ -324,7 +329,6 @@ export default function TaskDetailPage() {
                 </Button>
               )}
 
-              {/* Executor marks task as completed */}
               {canExecutorCompleteTask && (
                 <Button
                   variant="default"
@@ -336,6 +340,20 @@ export default function TaskDetailPage() {
                 >
                   {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                   Отметить как выполнено
+                </Button>
+              )}
+
+              {canExecutorConfirmPayment && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleConfirmPayment}
+                  disabled={isAnyActionPending}
+                  className="shadow-md bg-blue-600 hover:bg-blue-700 text-white"
+                  title="Подтвердить получение оплаты и завершить задачу"
+                >
+                  {isConfirmingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                  Подтвердить оплату
                 </Button>
               )}
             </>
@@ -373,5 +391,3 @@ export default function TaskDetailPage() {
     </div>
   );
 }
-
-

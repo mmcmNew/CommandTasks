@@ -11,12 +11,8 @@ export const TASK_STATUSES: TaskStatus[] = [
   "Доработано заказчиком", 
   "Доработано исполнителем",
   "Ожидает проверку", 
+  "Принята. Ожидает подтверждение оплаты", // New status
   "Завершено",        
 ];
 
 export const AUTH_COOKIE_NAME = "taskflow_session";
-
-
-
-
-

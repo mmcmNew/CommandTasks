@@ -44,6 +44,10 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'default';
       statusColorClass = 'bg-blue-500 text-white'; 
       break;
+    case 'Принята. Ожидает подтверждение оплаты': // New status
+      variant = 'default';
+      statusColorClass = 'bg-orange-400 text-white'; // Example: Orange for awaiting payment
+      break;
     case 'Завершено':
       variant = 'secondary';
       statusColorClass = 'bg-green-600 text-white';
@@ -59,7 +63,3 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
     </Badge>
   );
 }
-
-
-
-
