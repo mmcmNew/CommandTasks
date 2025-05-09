@@ -219,9 +219,9 @@ export default function TaskDetailPage() {
   const canCustomerReviewCompletedTask = isCustomer && taskDetails.status === "Ожидает проверку";
 
   // User can accept rework if status is "Доработано" and they are the "other party"
-  // If customer is current user, implies executor reworked.
-  // If executor is current user, implies customer reworked.
-  const canAcceptRework = taskDetails.status === "Доработано" && (isCustomer || isExecutor);
+  // If customer is current user, implies executor reworked. This button is now removed for customer.
+  // If executor is current user, implies customer reworked. Executor can accept.
+  const canExecutorAcceptCustomerRework = taskDetails.status === "Доработано" && isExecutor;
 
 
   const showProposalForm = currentUserRole === 'исполнитель' && 
@@ -335,8 +335,9 @@ export default function TaskDetailPage() {
                 </Button>
               )}
 
-              {/* Customer accepts Executor's rework */}
-              {taskDetails.status === "Доработано" && ( // Implies executor just reworked it for customer
+              {/* Customer accepts Executor's rework - THIS BUTTON IS REMOVED as per user request */}
+              {/* 
+              {taskDetails.status === "Доработано" && ( 
                 <Button
                   variant="default"
                   size="sm"
@@ -349,6 +350,7 @@ export default function TaskDetailPage() {
                   Принять доработку исполнителя
                 </Button>
               )}
+              */}
               
               {/* Customer reviews task marked as "Ожидает проверку" by executor */}
               {canCustomerReviewCompletedTask && (
@@ -399,7 +401,7 @@ export default function TaskDetailPage() {
               )}
 
               {/* Executor accepts Customer's rework/info */}
-              {taskDetails.status === "Доработано" && ( // Implies customer just reworked/provided info for executor
+              {canExecutorAcceptCustomerRework && ( // Renamed condition for clarity
                  <Button
                   variant="default"
                   size="sm"
@@ -462,7 +464,3 @@ export default function TaskDetailPage() {
     </div>
   );
 }
-
-
-
-
