@@ -12,10 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Send, Loader2, Paperclip, Edit } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import type { TaskStatus, UserRoleName } from '@/types';
+import type { TaskStatus } from '@/types';
 
 interface CommentFormProps {
   taskId: string;
@@ -23,8 +23,6 @@ interface CommentFormProps {
   taskCustomerId: string;
   taskExecutorId: string | null;
 }
-
-const relevantStatusesForChange: TaskStatus[] = ["Требует доработки от заказчика", "Требует доработки от исполнителя"];
 
 export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskExecutorId }: CommentFormProps) {
   const { toast } = useToast();
@@ -36,13 +34,39 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
     defaultValues: {
       text: '',
       attachments: [],
-      newStatusToSet: "none" as any, // Default to "none"
+      newStatusToSet: "none" as any, 
     },
   });
 
-  const canChangeStatus = currentUser && 
-    (currentUser.id === taskCustomerId || currentUser.id === taskExecutorId) &&
-    taskStatus !== "Завершено" && taskStatus !== "Новая";
+  const availableStatusChanges = useMemo(() => {
+    const options: TaskStatus[] = [];
+    if (!currentUser) return options;
+
+    const isCustomer = currentUser.id === taskCustomerId;
+    const isExecutor = currentUser.id === taskExecutorId;
+
+    if (taskStatus === "Требует доработки от заказчика" && isCustomer) {
+      options.push("Доработано");
+    }
+    if (taskStatus === "Требует доработки от исполнителя" && isExecutor) {
+      options.push("Доработано");
+    }
+    if (taskStatus === "Ожидает проверку" && isCustomer) {
+      options.push("Требует доработки от исполнителя");
+    }
+    if (taskStatus === "В работе" || taskStatus === "Доработано") {
+      if (isExecutor) {
+        options.push("Требует доработки от заказчика");
+      }
+      if (isCustomer) {
+         options.push("Требует доработки от исполнителя");
+      }
+    }
+    return options;
+  }, [currentUser, taskStatus, taskCustomerId, taskExecutorId]);
+
+
+  const canChangeStatusViaComment = availableStatusChanges.length > 0;
 
   async function onSubmit(data: CommentFormData) {
     if (!currentUser?.id) {
@@ -78,6 +102,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
           description: result.success || 'Your comment has been successfully posted.',
         });
         form.reset({ text: '', attachments: [], newStatusToSet: 'none' as any }); 
+        // Task detail page will re-fetch data due to revalidation by the action
       }
     } catch (error) {
       toast({
@@ -130,7 +155,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
             )}
           />
           
-          {canChangeStatus && (
+          {canChangeStatusViaComment && (
             <FormField
               control={form.control}
               name="newStatusToSet"
@@ -147,7 +172,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">Do not change status</SelectItem>
-                      {relevantStatusesForChange.map(statusValue => (
+                      {availableStatusChanges.map(statusValue => (
                         <SelectItem key={statusValue} value={statusValue} disabled={taskStatus === statusValue}>
                           {statusValue}
                         </SelectItem>
@@ -169,3 +194,4 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
     </Form>
   );
 }
+

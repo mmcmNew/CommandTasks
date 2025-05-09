@@ -28,9 +28,9 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'outline';
       statusColorClass = 'border-purple-500 text-purple-500';
       break;
-    case 'Доработано': // New status
+    case 'Доработано': 
       variant = 'default';
-      statusColorClass = 'bg-indigo-500 text-white'; // Example: Indigo
+      statusColorClass = 'bg-indigo-500 text-white'; 
       break;
     case 'В работе':
       variant = 'default';
@@ -40,10 +40,10 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
       variant = 'default';
       statusColorClass = 'bg-blue-500 text-white'; 
       break;
-    case 'Ожидает оплату': 
-      variant = 'default';
-      statusColorClass = 'bg-amber-500 text-white'; 
-      break;
+    // case 'Ожидает оплату':  // Removed status
+    //   variant = 'default';
+    //   statusColorClass = 'bg-amber-500 text-white'; 
+    //   break;
     case 'Завершено':
       variant = 'secondary';
       statusColorClass = 'bg-green-600 text-white';
@@ -59,5 +59,6 @@ export default function TaskStatusBadge({ status, className }: TaskStatusBadgePr
     </Badge>
   );
 }
+
 
 

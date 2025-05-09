@@ -17,13 +17,12 @@ export interface User {
 export type TaskStatus = 
   | "Новая" 
   | "Ожидает оценку" 
+  | "В работе"
   | "Требует доработки от заказчика" 
   | "Требует доработки от исполнителя"
-  | "Доработано" // New: Task has been reworked after a revision request
-  | "В работе"
-  | "Ожидает проверку" // New: Executor has marked task as done
-  | "Ожидает оплату"   // New: Customer has accepted the work, pending payment confirmation
-  | "Завершено"; // Final state, implies payment confirmed in the new flow
+  | "Доработано" 
+  | "Ожидает проверку" // Executor has marked task as done, customer to review
+  | "Завершено"; // Customer has accepted the work / Task is fully completed
 
 export interface TaskAttachment {
   path: string;
@@ -47,7 +46,6 @@ export interface Task {
 
 export interface CommentAttachment extends TaskAttachment {}
 
-// Added newStatusToSet to allow changing task status when submitting a comment
 export interface Comment {
   id: string;
   taskId: string;
@@ -55,7 +53,6 @@ export interface Comment {
   text: string;
   attachments: CommentAttachment[];
   timestamp: string; // ISO date string
-  // newStatusToSet?: TaskStatus; // This logic will be handled by the action based on form input
 }
 
 export interface SessionPayload { // For secure HTTP-only cookie session
@@ -85,5 +82,6 @@ export interface EnrichedTaskProposal extends TaskProposal {
   executorName: string;
   executorEmail: string; // For avatar or contact
 }
+
 
 

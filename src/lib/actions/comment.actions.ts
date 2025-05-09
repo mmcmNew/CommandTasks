@@ -2,10 +2,10 @@
 'use server';
 import type { CommentFormData } from '@/lib/schema';
 import { CommentSchema } from '@/lib/schema';
-import { addComment, saveFile, getTaskById, updateTask, getUserById } from '@/lib/data'; // Added getTaskById, updateTask
+import { addComment, saveFile, getTaskById, updateTask, getUserById } from '@/lib/data'; 
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
-import type { Comment, CommentAttachment, TaskStatus } from '@/types'; // Added TaskStatus
+import type { Comment, CommentAttachment, TaskStatus } from '@/types'; 
 
 export async function addCommentToTask(formData: FormData, currentUserId: string) { 
   if (!currentUserId) {
@@ -14,7 +14,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
 
   const taskId = formData.get('taskId') as string;
   const authorIdFromForm = formData.get('authorId') as string; 
-  const newStatusToSet = formData.get('newStatusToSet') as TaskStatus | undefined | "none";
+  const newStatusToSetFromForm = formData.get('newStatusToSet') as TaskStatus | undefined | "none";
   
   if (authorIdFromForm !== currentUserId) {
     return { error: 'User mismatch. Action forbidden.' };
@@ -23,7 +23,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   const rawFormData = {
     text: formData.get('text') as string,
     attachments: formData.getAll('attachments') as File[],
-    newStatusToSet: newStatusToSet === "none" ? undefined : newStatusToSet,
+    newStatusToSet: newStatusToSetFromForm === "none" ? undefined : newStatusToSetFromForm,
   };
 
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
@@ -35,7 +35,7 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'Invalid comment fields.', details: validatedFields.error.flatten().fieldErrors };
   }
 
-  const { text, attachments, newStatusToSet: validatedStatus } = validatedFields.data;
+  const { text, attachments, newStatusToSet } = validatedFields.data;
   const newCommentId = uuidv4();
   const uploadedAttachments: CommentAttachment[] = [];
 
@@ -63,34 +63,53 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
   };
 
   try {
-    await addComment(newComment);
+    await addComment(newComment); // Add the main comment first
 
     let statusUpdateMessage = "";
-    if (validatedStatus && (validatedStatus === "Требует доработки от заказчика" || validatedStatus === "Требует доработки от исполнителя")) {
+    if (newStatusToSet) {
       const task = await getTaskById(taskId);
       const user = await getUserById(currentUserId);
       const userName = user ? user.name : 'Система';
       
-      if (task) {
-        const oldStatus = task.status;
-        if (oldStatus !== validatedStatus) {
-            task.status = validatedStatus;
-            await updateTask(task);
-            statusUpdateMessage = ` Статус задачи изменен с "${oldStatus}" на "${validatedStatus}" пользователем ${userName}.`;
-            
-            // Log a system comment for the status change
-            const statusChangeComment: Comment = {
-                id: uuidv4(),
-                taskId,
-                authorId: currentUserId, // Or a system ID if preferred
-                text: `Статус задачи изменен с "${oldStatus}" на "${validatedStatus}" пользователем ${userName} при добавлении комментария.`,
-                attachments: [],
-                timestamp: new Date().toISOString(),
-            };
-            await addComment(statusChangeComment);
-        }
-      } else {
+      if (!task) {
          return { error: 'Task not found for status update.' };
+      }
+      const oldStatus = task.status;
+
+      // Authorization for status change
+      let authorizedToChange = false;
+      if (newStatusToSet === "Доработано") {
+        if (task.status === "Требует доработки от заказчика" && task.customerId === currentUserId) authorizedToChange = true;
+        if (task.status === "Требует доработки от исполнителя" && task.executorId === currentUserId) authorizedToChange = true;
+      } else if (newStatusToSet === "Требует доработки от исполнителя") {
+        if ((task.status === "В работе" || task.status === "Доработано" || task.status === "Ожидает проверку") && task.customerId === currentUserId) authorizedToChange = true;
+      } else if (newStatusToSet === "Требует доработки от заказчика") {
+        if ((task.status === "В работе" || task.status === "Доработано") && task.executorId === currentUserId) authorizedToChange = true;
+      } else {
+        // For other statuses, rely on dedicated actions if any, or specific logic.
+        // For now, only the above are managed via comment form.
+      }
+
+
+      if (authorizedToChange && oldStatus !== newStatusToSet) {
+        task.status = newStatusToSet;
+        await updateTask(task);
+        statusUpdateMessage = ` Статус задачи изменен с "${oldStatus}" на "${newStatusToSet}" пользователем ${userName}.`;
+        
+        const statusChangeCommentText = `Статус задачи изменен с "${oldStatus}" на "${newStatusToSet}" пользователем ${userName} при добавлении комментария.`;
+        const statusChangeComment: Comment = {
+            id: uuidv4(),
+            taskId,
+            authorId: currentUserId, 
+            text: statusChangeCommentText,
+            attachments: [],
+            timestamp: new Date().toISOString(),
+        };
+        await addComment(statusChangeComment); // Add separate comment for status change log
+      } else if (oldStatus === newStatusToSet) {
+        // No actual status change, do nothing extra
+      } else if (!authorizedToChange) {
+         return { error: `User ${userName} is not authorized to change status to "${newStatusToSet}" from "${oldStatus}" or the transition is not allowed.`};
       }
     }
 
@@ -101,3 +120,4 @@ export async function addCommentToTask(formData: FormData, currentUserId: string
     return { error: 'Could not add comment or update status.' };
   }
 }
+

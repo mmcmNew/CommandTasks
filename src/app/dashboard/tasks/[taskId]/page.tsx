@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { 
@@ -7,9 +6,9 @@ import {
   changeTaskStatusAndLog,
   markTaskAsCompletedByExecutorAction,
   acceptCompletedTaskByCustomerAction,
-  confirmPaymentAndFinalizeTaskAction,
-  markTaskAsReworkedAction, // New action
-  acceptReworkAction, // New action
+  // confirmPaymentAndFinalizeTaskAction, // Removed
+  // markTaskAsReworkedAction, // Removed, logic moved to comment form
+  acceptReworkAction, 
 } from '@/lib/actions/task.actions';
 import TaskStatusBadge from '@/components/tasks/task-status-badge';
 import CommentSection from '@/components/comments/comment-section';
@@ -20,8 +19,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  SendToBack, Reply, CheckCircle, ThumbsUp, CircleDollarSign, CheckSquare, CornerRightUp
-} from 'lucide-react'; // Added CheckSquare, CornerRightUp
+  SendToBack, Reply, CheckCircle, ThumbsUp, /*CircleDollarSign,*/ CheckSquare, CornerRightUp, AlertTriangle
+} from 'lucide-react'; // Removed CircleDollarSign
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -57,9 +56,9 @@ export default function TaskDetailPage() {
   const [isStatusChanging, startStatusChangeTransition] = useTransition();
   const [isCompletingTask, startCompleteTaskTransition] = useTransition();
   const [isAcceptingTask, startAcceptTaskTransition] = useTransition();
-  const [isConfirmingPayment, startConfirmPaymentTransition] = useTransition();
-  const [isMarkingReworked, startMarkReworkedTransition] = useTransition(); // New transition
-  const [isAcceptingRework, startAcceptReworkTransition] = useTransition(); // New transition
+  // const [isConfirmingPayment, startConfirmPaymentTransition] = useTransition(); // Removed
+  // const [isMarkingReworked, startMarkReworkedTransition] = useTransition(); // Removed
+  const [isAcceptingRework, startAcceptReworkTransition] = useTransition();
 
 
   const fetchData = async () => {
@@ -118,11 +117,19 @@ export default function TaskDetailPage() {
     }
   };
 
-  const handleRevisionStatusChange = async (newStatus: TaskStatus) => {
+  // Used for "Требует доработки от..."
+  const handleRequestRevision = async (newStatus: TaskStatus, requiredComment: string) => {
     if (!currentUser || !taskDetails) return;
 
+    // For this specific action, we prompt for a comment if not provided via form later
+    // However, the user's new flow is: "Customer, if dissatisfied, adds a comment AND sets status..."
+    // This implies the comment form will be used. The `changeTaskStatusAndLog` action can take an optional comment.
+    // For simplicity, the button will just trigger the status change, and the user should use the comment form to elaborate.
+
     startStatusChangeTransition(async () => {
-      const result = await changeTaskStatusAndLog(taskDetails.id, newStatus, currentUser.id);
+      // Prompting for comment here can be complex. Let's assume comment is added separately.
+      // The action `changeTaskStatusAndLog` will create a system comment.
+      const result = await changeTaskStatusAndLog(taskDetails.id, newStatus, currentUser.id, `Запрошена доработка: ${requiredComment || 'Подробности в комментариях.'}`);
       if (result.success) {
         toast({ title: "Status Updated", description: result.success });
         fetchData(); 
@@ -145,12 +152,12 @@ export default function TaskDetailPage() {
     });
   };
 
-  const handleAcceptCompletedTask = () => {
+  const handleAcceptCompletedTask = () => { // Now changes status to "Завершено"
     if (!currentUser || !taskDetails || taskDetails.customerId !== currentUser.id) return;
     startAcceptTaskTransition(async () => {
       const result = await acceptCompletedTaskByCustomerAction(taskDetails.id, currentUser.id);
       if (result.success) {
-        toast({ title: "Task Accepted", description: result.success });
+        toast({ title: "Task Accepted & Completed", description: result.success });
         fetchData();
       } else {
         toast({ title: "Error", description: result.error || "Could not accept task.", variant: "destructive" });
@@ -158,33 +165,9 @@ export default function TaskDetailPage() {
     });
   };
 
-  const handleConfirmPayment = () => {
-    if (!currentUser || !taskDetails || taskDetails.executorId !== currentUser.id) return;
-    startConfirmPaymentTransition(async () => {
-      const result = await confirmPaymentAndFinalizeTaskAction(taskDetails.id, currentUser.id);
-      if (result.success) {
-        toast({ title: "Payment Confirmed", description: result.success });
-        fetchData();
-      } else {
-        toast({ title: "Error", description: result.error || "Could not confirm payment.", variant: "destructive" });
-      }
-    });
-  };
+  // handleConfirmPayment is removed
 
-  const handleMarkAsReworked = () => {
-    if (!currentUser || !taskDetails) return;
-    startMarkReworkedTransition(async () => {
-      const result = await markTaskAsReworkedAction(taskDetails.id, currentUser.id);
-      if (result.success) {
-        toast({ title: "Rework Submitted", description: result.success });
-        fetchData();
-      } else {
-        toast({ title: "Error", description: result.error || "Could not mark task as reworked.", variant: "destructive" });
-      }
-    });
-  };
-
-  const handleAcceptRework = () => {
+  const handleAcceptRework = () => { // For accepting "Доработано" status
     if (!currentUser || !taskDetails) return;
     startAcceptReworkTransition(async () => {
       const result = await acceptReworkAction(taskDetails.id, currentUser.id);
@@ -196,8 +179,8 @@ export default function TaskDetailPage() {
       }
     });
   };
-
-  const isAnyActionPending = isStatusChanging || isCompletingTask || isAcceptingTask || isConfirmingPayment || isMarkingReworked || isAcceptingRework;
+  
+  const isAnyActionPending = isStatusChanging || isCompletingTask || isAcceptingTask || isAcceptingRework;
 
 
   if (loading || authLoading) {
@@ -217,19 +200,30 @@ export default function TaskDetailPage() {
     return <div className="text-center py-10">Redirecting to login...</div>;
   }
 
-  // Conditions for "Send to revision" buttons
-  const canRequestExecutorRevision = currentUser.id === taskDetails.customerId &&
-                                 taskDetails.executorId &&
-                                 (taskDetails.status === "В работе" || taskDetails.status === "Доработано") &&
-                                 taskDetails.status !== "Требует доработки от исполнителя";
+  // Conditions for revision/action buttons
+  const isCustomer = currentUser.id === taskDetails.customerId;
+  const isExecutor = currentUser.id === taskDetails.executorId;
 
-  const canRequestCustomerRevision = currentUser.id === taskDetails.executorId &&
-                                  taskDetails.executorId &&
-                                 (taskDetails.status === "В работе" || taskDetails.status === "Доработано") &&
-                                 taskDetails.status !== "Требует доработки от заказчика";
+  // Customer can request revision from executor if task is "В работе" or "Доработано" (if executor reworked and customer still not happy)
+  const canCustomerRequestExecutorRevision = isCustomer && taskDetails.executorId &&
+                                 (taskDetails.status === "В работе" || taskDetails.status === "Доработано");
+
+  // Executor can request revision from customer if task is "В работе" or "Доработано" (if customer reworked and executor needs more)
+  const canExecutorRequestCustomerRevision = isExecutor && taskDetails.executorId &&
+                                 (taskDetails.status === "В работе" || taskDetails.status === "Доработано");
+
+  // Executor can mark task as complete
+  const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано");
+  
+  // Customer can accept completed task or send for rework
+  const canCustomerReviewCompletedTask = isCustomer && taskDetails.status === "Ожидает проверку";
+
+  // User can accept rework if status is "Доработано" and they are the "other party"
+  // If customer is current user, implies executor reworked.
+  // If executor is current user, implies customer reworked.
+  const canAcceptRework = taskDetails.status === "Доработано" && (isCustomer || isExecutor);
 
 
-  // Show proposal form if current user is an executor and task is open for proposals (not assigned)
   const showProposalForm = currentUserRole === 'исполнитель' && 
                            !taskDetails.executorId && 
                            (taskDetails.status === "Новая" || taskDetails.status === "Ожидает оценку");
@@ -324,145 +318,118 @@ export default function TaskDetailPage() {
         </CardContent>
         <CardFooter className="flex flex-wrap justify-start items-start sm:items-center gap-2 pt-4 border-t">
           {/* === Customer Actions === */}
-          {currentUser.id === taskDetails.customerId && (
+          {isCustomer && (
             <>
-              {/* Send to Executor for Revision */}
-              {canRequestExecutorRevision && (
+              {/* Customer requests revision from Executor */}
+              {canCustomerRequestExecutorRevision && (
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleRevisionStatusChange("Требует доработки от исполнителя")}
+                  onClick={() => handleRequestRevision("Требует доработки от исполнителя", "Заказчик запрашивает доработку у исполнителя.")}
                   disabled={isAnyActionPending}
                   className="shadow-sm"
-                  title="Return task to executor for further revision"
+                  title="Вернуть задачу исполнителю на доработку"
                 >
                   {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Reply className="mr-2 h-4 w-4" />}
-                  Send to Executor for Revision
+                  Отправить исполнителю на доработку
                 </Button>
               )}
 
-              {/* Mark Customer Revision as Done (e.g., provided info) */}
-              {taskDetails.status === "Требует доработки от заказчика" && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleMarkAsReworked}
-                  disabled={isAnyActionPending}
-                  className="shadow-md bg-orange-500 hover:bg-orange-600 text-white"
-                  title="Mark your revision/clarification as complete"
-                >
-                  {isMarkingReworked ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                  Завершить доработку (Заказчик)
-                </Button>
-              )}
-
-              {/* Accept Executor's Rework */}
-              {taskDetails.status === "Доработано" && ( // Implies executor just reworked
+              {/* Customer accepts Executor's rework */}
+              {taskDetails.status === "Доработано" && ( // Implies executor just reworked it for customer
                 <Button
                   variant="default"
                   size="sm"
                   onClick={handleAcceptRework}
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-500 hover:bg-green-600 text-white"
-                  title="Accept the rework done by the executor"
+                  title="Принять доработку от исполнителя"
                 >
                   {isAcceptingRework ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CornerRightUp className="mr-2 h-4 w-4" />}
                   Принять доработку исполнителя
                 </Button>
               )}
+              
+              {/* Customer reviews task marked as "Ожидает проверку" by executor */}
+              {canCustomerReviewCompletedTask && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleAcceptCompletedTask} // This will set status to "Завершено"
+                    disabled={isAnyActionPending}
+                    className="shadow-md bg-blue-600 hover:bg-blue-700 text-white"
+                    title="Принять выполненную работу и завершить задачу"
+                  >
+                    {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
+                    Принять и завершить задачу
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRequestRevision("Требует доработки от исполнителя", "Заказчик не принял работу, требуется доработка от исполнителя.")}
+                    disabled={isAnyActionPending}
+                    className="shadow-sm border-destructive text-destructive hover:bg-destructive/10"
+                    title="Отправить задачу на доработку исполнителю"
+                  >
+                    {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                    Отправить на доработку исполнителю
+                  </Button>
+                </>
+              )}
             </>
           )}
 
           {/* === Executor Actions === */}
-          {currentUser.id === taskDetails.executorId && (
+          {isExecutor && (
             <>
-              {/* Request Customer Revision */}
-              {canRequestCustomerRevision && (
+              {/* Executor requests revision from Customer */}
+              {canExecutorRequestCustomerRevision && (
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleRevisionStatusChange("Требует доработки от заказчика")}
+                  onClick={() => handleRequestRevision("Требует доработки от заказчика", "Исполнитель запрашивает доработку у заказчика.")}
                   disabled={isAnyActionPending}
                   className="shadow-sm"
-                  title="Request clarification or revision from customer"
+                  title="Запросить уточнения или доработку у заказчика"
                 >
                   {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SendToBack className="mr-2 h-4 w-4" />}
-                  Request Customer Revision
+                  Запросить доработку от заказчика
                 </Button>
               )}
 
-              {/* Mark Executor Revision as Done */}
-              {taskDetails.status === "Требует доработки от исполнителя" && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleMarkAsReworked}
-                  disabled={isAnyActionPending}
-                  className="shadow-md bg-purple-500 hover:bg-purple-600 text-white"
-                  title="Mark your revision as complete"
-                >
-                  {isMarkingReworked ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                  Завершить доработку (Исполнитель)
-                </Button>
-              )}
-
-              {/* Accept Customer's Rework/Info */}
-              {taskDetails.status === "Доработано" && ( // Implies customer just reworked/provided info
+              {/* Executor accepts Customer's rework/info */}
+              {taskDetails.status === "Доработано" && ( // Implies customer just reworked/provided info for executor
                  <Button
                   variant="default"
                   size="sm"
                   onClick={handleAcceptRework}
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-500 hover:bg-green-600 text-white"
-                  title="Acknowledge customer's input and continue work"
+                  title="Принять информацию от заказчика и продолжить работу"
                 >
                   {isAcceptingRework ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CornerRightUp className="mr-2 h-4 w-4" />}
                   Принять информацию заказчика
                 </Button>
               )}
+
+              {/* Executor marks task as completed */}
+              {canExecutorCompleteTask && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleMarkTaskAsCompleted} // Sets status to "Ожидает проверку"
+                  disabled={isAnyActionPending}
+                  className="shadow-md bg-green-600 hover:bg-green-700 text-white"
+                  title="Отметить задачу как выполненную"
+                >
+                  {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                  Отметить как выполнено
+                </Button>
+              )}
             </>
           )}
-
-          {/* Task Completion Flow Buttons (Remain unchanged for now, but consider if "В работе" needs to be checked more carefully) */}
-          {currentUser.id === taskDetails.executorId && taskDetails.status === "В работе" && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleMarkTaskAsCompleted}
-              disabled={isAnyActionPending}
-              className="shadow-md bg-green-600 hover:bg-green-700 text-white"
-              title="Mark this task as completed"
-            >
-              {isCompletingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Завершить выполнение
-            </Button>
-          )}
-          {currentUser.id === taskDetails.customerId && taskDetails.status === "Ожидает проверку" && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleAcceptCompletedTask}
-              disabled={isAnyActionPending}
-              className="shadow-md bg-blue-600 hover:bg-blue-700 text-white"
-              title="Accept the completed work for this task"
-            >
-              {isAcceptingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
-              Принять задачу
-            </Button>
-          )}
-           {currentUser.id === taskDetails.executorId && taskDetails.status === "Ожидает оплату" && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleConfirmPayment}
-              disabled={isAnyActionPending}
-              className="shadow-md bg-teal-600 hover:bg-teal-700 text-white"
-              title="Confirm that payment has been received for this task"
-            >
-              {isConfirmingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CircleDollarSign className="mr-2 h-4 w-4" />}
-              Подтвердить оплату
-            </Button>
-          )}
+          {/* Removed "Завершить доработку" buttons as this is now handled by comment form + "newStatusToSet" = "Доработано" */}
         </CardFooter>
       </Card>
 
@@ -495,5 +462,6 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+
 
 
