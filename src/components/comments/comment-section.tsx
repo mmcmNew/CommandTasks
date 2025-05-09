@@ -12,9 +12,10 @@ interface CommentSectionProps {
   taskStatus: TaskStatus;
   taskCustomerId: string;
   taskExecutorId: string | null;
+  onCommentAdded: () => void; // Callback to refresh comments
 }
 
-export default function CommentSection({ taskId, comments, users, taskStatus, taskCustomerId, taskExecutorId }: CommentSectionProps) {
+export default function CommentSection({ taskId, comments, users, taskStatus, taskCustomerId, taskExecutorId, onCommentAdded }: CommentSectionProps) {
   return (
     <Card className="shadow-xl">
       <CardHeader>
@@ -40,6 +41,7 @@ export default function CommentSection({ taskId, comments, users, taskStatus, ta
           taskStatus={taskStatus}
           taskCustomerId={taskCustomerId}
           taskExecutorId={taskExecutorId}
+          onCommentAdded={onCommentAdded} // Pass down the callback
         />
       </CardContent>
     </Card>

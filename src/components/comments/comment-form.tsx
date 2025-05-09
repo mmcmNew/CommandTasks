@@ -22,9 +22,10 @@ interface CommentFormProps {
   taskStatus: TaskStatus;
   taskCustomerId: string;
   taskExecutorId: string | null;
+  onCommentAdded: () => void; // Callback to refresh comments
 }
 
-export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskExecutorId }: CommentFormProps) {
+export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskExecutorId, onCommentAdded }: CommentFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const { currentUser } = useAuth();
@@ -102,7 +103,7 @@ export default function CommentForm({ taskId, taskStatus, taskCustomerId, taskEx
           description: result.success || 'Your comment has been successfully posted.',
         });
         form.reset({ text: '', attachments: [], newStatusToSet: 'none' as any }); 
-        // Task detail page will re-fetch data due to revalidation by the action
+        onCommentAdded(); // Trigger re-fetch of comments
       }
     } catch (error) {
       toast({

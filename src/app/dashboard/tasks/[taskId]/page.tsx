@@ -25,7 +25,7 @@ import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useCallback } from 'react';
 import type { Comment as CommentType, User as UserType, Task as TaskType, TaskStatus, EnrichedTaskProposal, UserRoleObject, UserRoleName } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -61,8 +61,8 @@ export default function TaskDetailPage() {
   const [isAcceptingRework, startAcceptReworkTransition] = useTransition();
 
 
-  const fetchData = async () => {
-    if (!currentUser) return;
+  const fetchData = useCallback(async () => {
+    if (!currentUser || !taskId) return;
     try {
       setLoading(true);
       const result = await fetchTaskPageData(taskId, currentUser.id); 
@@ -92,7 +92,8 @@ export default function TaskDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId, currentUser, toast]); // Removed router from dependencies as it's stable
 
   useEffect(() => {
     if (authLoading) return; 
@@ -104,8 +105,8 @@ export default function TaskDetailPage() {
     if (taskId && currentUser) {
       fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskId, currentUser, authLoading, router, toast]);
+  
+  }, [taskId, currentUser, authLoading, router, fetchData]);
 
 
   const formatDate = (dateString: string | null) => {
@@ -121,14 +122,7 @@ export default function TaskDetailPage() {
   const handleRequestRevision = async (newStatus: TaskStatus, requiredComment: string) => {
     if (!currentUser || !taskDetails) return;
 
-    // For this specific action, we prompt for a comment if not provided via form later
-    // However, the user's new flow is: "Customer, if dissatisfied, adds a comment AND sets status..."
-    // This implies the comment form will be used. The `changeTaskStatusAndLog` action can take an optional comment.
-    // For simplicity, the button will just trigger the status change, and the user should use the comment form to elaborate.
-
     startStatusChangeTransition(async () => {
-      // Prompting for comment here can be complex. Let's assume comment is added separately.
-      // The action `changeTaskStatusAndLog` will create a system comment.
       const result = await changeTaskStatusAndLog(taskDetails.id, newStatus, currentUser.id, `Запрошена доработка: ${requiredComment || 'Подробности в комментариях.'}`);
       if (result.success) {
         toast({ title: "Status Updated", description: result.success });
@@ -460,6 +454,7 @@ export default function TaskDetailPage() {
         taskStatus={taskDetails.status}
         taskCustomerId={taskDetails.customerId}
         taskExecutorId={taskDetails.executorId}
+        onCommentAdded={fetchData} // Pass fetchData to refresh comments
       />
     </div>
   );
