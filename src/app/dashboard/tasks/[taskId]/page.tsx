@@ -13,11 +13,12 @@ import CommentSection from '@/components/comments/comment-section';
 import TaskProposalForm from '@/components/proposals/task-proposal-form';
 import TaskProposalList from '@/components/proposals/task-proposal-list';
 import { useParams, notFound, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { 
   CalendarDays, DollarSign, User, Briefcase, Paperclip, FileText, Loader2, 
-  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard, Tags // Added Tags
+  CheckCircle, ThumbsUp, CheckSquare, CornerRightUp, CreditCard, Tags, Edit // Added Tags & Edit
 } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
@@ -32,7 +33,6 @@ interface EnrichedTaskDetails extends TaskType {
   authorName: string;
   customerName: string;
   executorName: string;
-  // categoryName is already on TaskType from types/index.ts
 }
 
 
@@ -49,7 +49,7 @@ export default function TaskDetailPage() {
   const [users, setUsers] = useState<UserType[]>([]); 
   const [taskProposals, setTaskProposals] = useState<EnrichedTaskProposal[]>([]);
   const [userRoles, setUserRoles] = useState<UserRoleObject[]>([]);
-  const [taskCategories, setTaskCategories] = useState<TaskCategory[]>([]); // Added for completeness, though categoryName is on taskDetails
+  const [taskCategories, setTaskCategories] = useState<TaskCategory[]>([]); 
   const [currentUserRole, setCurrentUserRole] = useState<UserRoleName | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -192,6 +192,7 @@ export default function TaskDetailPage() {
 
   const isCustomer = currentUser.id === taskDetails.customerId;
   const isExecutor = currentUser.id === taskDetails.executorId;
+  const isAdmin = currentUser.roleName === 'администратор';
 
   const canExecutorCompleteTask = isExecutor && (taskDetails.status === "В работе" || taskDetails.status === "Доработано заказчиком");
   const canCustomerAcceptCompletedTask = isCustomer && (taskDetails.status === "Ожидает проверку" || taskDetails.status === "Доработано исполнителем");
@@ -220,6 +221,13 @@ export default function TaskDetailPage() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <TaskStatusBadge status={taskDetails.status} className="px-3 py-1 text-sm"/>
+              {isAdmin && (
+                <Link href={`/dashboard/tasks/${taskDetails.id}/edit`} passHref>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Edit className="mr-2 h-4 w-4" /> Edit Task
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </CardHeader>

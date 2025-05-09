@@ -3,11 +3,11 @@
 import type { TaskFormData, TaskProposalFormData } from '@/lib/schema';
 import { TaskSchema, TaskProposalSchema } from '@/lib/schema';
 import { 
-  addTask, 
+  addTask as addTaskToDb, 
   getTaskById, 
-  updateTask, 
+  updateTask as updateTaskInDb, 
   saveFile, 
-  getTasks as getAllTasksFromDb, // Renamed to avoid conflict
+  getTasks as getAllTasksFromDb, 
   getCommentsByTaskId as fetchCommentsFromDb,
   getUserRoles as fetchUserRolesFromDb,
   getUsers as fetchAllUsersFromDb,
@@ -17,16 +17,16 @@ import {
   getTaskProposalsByTaskId as fetchTaskProposalsFromDb,
   getTaskProposalById as fetchTaskProposalByIdFromDb,
   deleteTaskProposalsByTaskId,
-  getTaskCategories, // Added
-  getTaskCategoryById, // Added
-  // deleteTaskProposalById, // Not currently used, but keep for future
+  getTaskCategories, 
+  getTaskCategoryById, 
+  deleteTask as deleteTaskFromDb,
 } from '@/lib/data';
 import { v4 as uuidv4 } from 'uuid';
 import { redirect } from 'next/navigation';
 import type { Task, TaskAttachment, Comment, TaskStatus, TaskProposal, UserRoleName, EnrichedTaskProposal, User, TaskCategory } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function createTask(formData: FormData, authorId: string) { 
+export async function createTaskAction(formData: FormData, authorId: string) { 
   if (!authorId) {
     return { error: 'Unauthorized. Author ID is missing.' };
   }
@@ -39,13 +39,12 @@ export async function createTask(formData: FormData, authorId: string) {
     cost: formData.get('cost') ? parseFloat(formData.get('cost') as string) : null,
     customerId: formData.get('customerId') as string,
     executorId: formData.get('executorId') ? formData.get('executorId') as string : null,
-    categoryId: formData.get('categoryId') as string | null, // Added categoryId
+    categoryId: formData.get('categoryId') as string | null, 
     attachments: formData.getAll('attachments') as File[],
   };
   
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
   
-  // If categoryId is "null" string from form, convert to actual null
   if (rawFormData.categoryId === "null" || rawFormData.categoryId === "") {
     rawFormData.categoryId = null;
   }
@@ -89,11 +88,11 @@ export async function createTask(formData: FormData, authorId: string) {
     attachments: uploadedAttachments,
     customerId, 
     executorId: executorId ?? null, 
-    categoryId: categoryId ?? null, // Handle null categoryId
+    categoryId: categoryId ?? null, 
   };
 
   try {
-    await addTask(newTask);
+    await addTaskToDb(newTask);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${newTaskId}`);
   } catch (error) {
@@ -104,8 +103,107 @@ export async function createTask(formData: FormData, authorId: string) {
   redirect(`/dashboard/tasks/${newTaskId}`);
 }
 
+export async function updateTaskAction(taskId: string, formData: FormData, currentUserId: string) {
+  const currentUser = await getUserById(currentUserId);
+  if (!currentUser) {
+    return { error: 'Unauthorized. User not found.' };
+  }
+  if (currentUser.roleName !== 'администратор') {
+    return { error: 'Forbidden. Only administrators can edit tasks.' };
+  }
+
+  const existingTask = await getTaskById(taskId);
+  if (!existingTask) {
+    return { error: 'Task not found.' };
+  }
+
+  const rawFormData = {
+    title: formData.get('title') as string,
+    description: formData.get('description') as string,
+    status: formData.get('status') as Task['status'],
+    dueDate: formData.get('dueDate') ? new Date(formData.get('dueDate') as string) : null,
+    cost: formData.get('cost') ? parseFloat(formData.get('cost') as string) : null,
+    customerId: formData.get('customerId') as string,
+    executorId: formData.get('executorId') === 'none' || !formData.get('executorId') ? null : formData.get('executorId') as string,
+    categoryId: formData.get('categoryId') === 'null' || !formData.get('categoryId') ? null : formData.get('categoryId') as string,
+    attachments: formData.getAll('attachments') as File[],
+  };
+
+  rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
+
+  const validatedFields = TaskSchema.safeParse(rawFormData);
+  if (!validatedFields.success) {
+    console.error("Update validation errors:", validatedFields.error.flatten().fieldErrors);
+    return { error: 'Invalid fields for update.', details: validatedFields.error.flatten().fieldErrors };
+  }
+
+  const { title, description, status, dueDate, cost, customerId, executorId, categoryId, attachments: newAttachmentFiles } = validatedFields.data;
+
+  let finalAttachments: TaskAttachment[] = existingTask.attachments || [];
+  if (newAttachmentFiles && newAttachmentFiles.length > 0) {
+    finalAttachments = []; // Replace all existing attachments
+    for (const file of newAttachmentFiles) {
+      if (file && file.size > 0) {
+        try {
+          const savedPath = await saveFile(file, taskId, 'task');
+          finalAttachments.push({ path: savedPath, name: file.name, type: file.type.startsWith('image/') ? 'image' : (file.type === 'application/pdf' ? 'pdf' : 'other') });
+        } catch (e) {
+          console.error("File upload error during update:", e);
+          return { error: `Failed to upload file during update: ${file.name}` };
+        }
+      }
+    }
+  }
+  
+  const taskToUpdate: Task = {
+    ...existingTask, // Preserve authorId, createdAt, id
+    title,
+    description,
+    status,
+    dueDate: dueDate ? dueDate.toISOString() : null,
+    cost: cost ?? null,
+    customerId,
+    executorId: executorId ?? null,
+    categoryId: categoryId ?? null,
+    attachments: finalAttachments,
+  };
+
+  try {
+    await updateTaskInDb(taskToUpdate);
+    revalidatePath('/dashboard');
+    revalidatePath(`/dashboard/tasks/${taskId}`);
+    revalidatePath('/dashboard/history');
+  } catch (error) {
+    console.error('Task update error:', error);
+    return { error: 'Could not update task.' };
+  }
+  redirect(`/dashboard/tasks/${taskId}`);
+}
+
+
+export async function deleteTaskAction(taskId: string, currentUserId: string) {
+  const currentUser = await getUserById(currentUserId);
+  if (!currentUser) {
+    return { error: 'Unauthorized. User not found.' };
+  }
+  if (currentUser.roleName !== 'администратор') {
+    return { error: 'Forbidden. Only administrators can delete tasks.' };
+  }
+
+  try {
+    await deleteTaskFromDb(taskId);
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/history');
+  } catch (error) {
+    console.error('Task deletion error:', error);
+    return { error: 'Could not delete task.' };
+  }
+  redirect('/dashboard');
+}
+
+
 export async function getTaskDetails(taskId: string) {
-  const task = await getTaskById(taskId); // getTaskById now enriches with categoryName
+  const task = await getTaskById(taskId); 
   if (!task) return null;
 
   const users = await fetchAllUsersFromDb(); 
@@ -118,7 +216,6 @@ export async function getTaskDetails(taskId: string) {
     authorName: author?.name || 'Unknown',
     customerName: customer?.name || 'Unknown',
     executorName: executor?.name || 'N/A',
-    // categoryName is already on task from getTaskById
   };
 }
 
@@ -159,7 +256,7 @@ export async function changeTaskStatusAndLog(
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -173,7 +270,7 @@ export async function changeTaskStatusAndLog(
 
 export async function fetchTaskPageData(taskId: string, currentUserId?: string) {
   try {
-    const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); // Already includes categoryName
+    const taskDetailsWithEnrichedUsers = await getTaskDetails(taskId); 
     
     if (!taskDetailsWithEnrichedUsers) {
       return { success: false, error: "Task not found." };
@@ -182,7 +279,7 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
     const comments = await fetchCommentsFromDb(taskId);
     const allUsersList = await fetchAllUsersFromDb();
     const userRoles = await fetchUserRolesFromDb();
-    const taskCategories = await getTaskCategories(); // Fetch all categories
+    const taskCategories = await getTaskCategories(); 
 
     const rawProposals = await fetchTaskProposalsFromDb(taskId);
     const enrichedProposals: EnrichedTaskProposal[] = rawProposals.map(proposal => {
@@ -203,7 +300,7 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
       users: allUsersList,
       taskProposals: enrichedProposals,
       userRoles,
-      taskCategories, // Return categories
+      taskCategories, 
       currentUserRoleName: currentUser?.roleName
     };
   } catch (error) {
@@ -212,17 +309,18 @@ export async function fetchTaskPageData(taskId: string, currentUserId?: string) 
   }
 }
 
-export async function fetchNewTaskPageData() {
+export async function fetchNewTaskPageData(taskId?: string) { // Optional taskId for edit mode
   try {
-    const [users, userRoles, taskCategories] = await Promise.all([
+    const [users, userRoles, taskCategories, taskToEdit] = await Promise.all([
       fetchAllUsersFromDb(),
       fetchUserRolesFromDb(),
-      getTaskCategories() // Fetch categories
+      getTaskCategories(),
+      taskId ? getTaskById(taskId) : Promise.resolve(null),
     ]);
-    return { success: true, users, userRoles, taskCategories }; // Return categories
+    return { success: true, users, userRoles, taskCategories, taskToEdit };
   } catch (error) {
-    console.error("Failed to fetch new task page data:", error);
-    return { success: false, error: "Failed to load data for new task form." };
+    console.error("Failed to fetch new/edit task page data:", error);
+    return { success: false, error: "Failed to load data for task form." };
   }
 }
 
@@ -335,7 +433,7 @@ export async function acceptTaskProposal(proposalId: string, currentUserId: stri
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(assignmentComment);
     
     await deleteTaskProposalsByTaskId(task.id);
@@ -379,7 +477,7 @@ export async function markTaskAsCompletedByExecutorAction(taskId: string, curren
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -420,7 +518,7 @@ export async function acceptCompletedTaskByCustomerAction(taskId: string, curren
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -461,7 +559,7 @@ export async function confirmPaymentByExecutorAction(taskId: string, currentUser
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -503,7 +601,7 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
   };
 
   try {
-    await updateTask(task);
+    await updateTaskInDb(task);
     await addComment(newComment);
     revalidatePath('/dashboard');
     revalidatePath(`/dashboard/tasks/${taskId}`);
@@ -517,16 +615,16 @@ export async function acceptReworkAction(taskId: string, currentUserId: string) 
 
 export async function getCompletedTasksAction() {
   try {
-    const allTasks = await getAllTasksFromDb(); // This now returns enriched tasks
+    const allTasks = await getAllTasksFromDb(); 
     const allUsers = await fetchAllUsersFromDb();
-    // const allCategories = await getTaskCategories(); // Already fetched by getAllTasksFromDb
 
     const completedTasks = allTasks.filter(task => task.status === "Завершено");
     
-    // Tasks are already enriched by getAllTasksFromDb
-    return { success: true, tasks: completedTasks, users: allUsers /*, categories: allCategories */ };
+    return { success: true, tasks: completedTasks, users: allUsers };
   } catch (error) {
     console.error("Failed to fetch completed tasks:", error);
-    return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] /*, categories: [] */ };
+    return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
+
+```

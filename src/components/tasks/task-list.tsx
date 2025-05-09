@@ -6,13 +6,14 @@ import TaskStatusBadge from './task-status-badge';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Eye, Edit3, Trash2, CalendarDays, DollarSign, User as UserIcon, Tags } from 'lucide-react'; // Added Tags
+import { Eye, Edit, Trash2, CalendarDays, DollarSign, User as UserIcon, Tags } from 'lucide-react'; 
 import Image from 'next/image';
+import { useAuth } from '@/context/auth-context';
 
 interface TaskListProps {
-  tasks: Task[]; // Assumes tasks are enriched with categoryName
+  tasks: Task[]; 
   users: User[];
-  categories: TaskCategory[]; // Pass categories for potential filtering/sorting UI, though categoryName is on task
+  categories: TaskCategory[]; 
 }
 
 const getUserName = (userId: string | null, users: User[]): string => {
@@ -22,7 +23,9 @@ const getUserName = (userId: string | null, users: User[]): string => {
 };
 
 export default function TaskList({ tasks, users, categories }: TaskListProps) {
-  
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.roleName === 'администратор';
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     try {
@@ -74,6 +77,13 @@ export default function TaskList({ tasks, users, categories }: TaskListProps) {
                       <Eye className="h-4 w-4" />
                     </Button>
                   </Link>
+                  {isAdmin && (
+                    <Link href={`/dashboard/tasks/${task.id}/edit`} passHref>
+                      <Button variant="ghost" size="icon" aria-label="Edit task">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -130,12 +140,19 @@ export default function TaskList({ tasks, users, categories }: TaskListProps) {
                   </div>
                 </div>
               )}
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex justify-end space-x-2">
                 <Link href={`/dashboard/tasks/${task.id}`} passHref>
                   <Button variant="outline" size="sm">
-                    <Eye className="mr-2 h-4 w-4" /> View Details
+                    <Eye className="mr-2 h-4 w-4" /> View
                   </Button>
                 </Link>
+                {isAdmin && (
+                    <Link href={`/dashboard/tasks/${task.id}/edit`} passHref>
+                      <Button variant="outline" size="sm">
+                        <Edit className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                    </Link>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -144,3 +161,5 @@ export default function TaskList({ tasks, users, categories }: TaskListProps) {
     </>
   );
 }
+
+```

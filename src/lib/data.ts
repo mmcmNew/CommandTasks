@@ -9,7 +9,7 @@ interface AppData {
   comments: Comment[];
   userRoles: UserRoleObject[];
   taskProposals: TaskProposal[];
-  taskCategories: TaskCategory[]; // Added taskCategories
+  taskCategories: TaskCategory[];
 }
 
 const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data', 'data.json');
@@ -18,18 +18,16 @@ export async function readData(): Promise<AppData> {
   try {
     const jsonData = await fs.readFile(dataFilePath, 'utf-8');
     const parsedData = JSON.parse(jsonData) as AppData;
-    // Ensure all expected arrays exist
     return {
       users: parsedData.users || [],
       tasks: parsedData.tasks || [],
       comments: parsedData.comments || [],
       userRoles: parsedData.userRoles || [],
       taskProposals: parsedData.taskProposals || [],
-      taskCategories: parsedData.taskCategories || [], // Ensure taskCategories is initialized
+      taskCategories: parsedData.taskCategories || [],
     };
   } catch (error) {
     console.error('Failed to read data file:', error);
-    // If file doesn't exist or is corrupted, return a default structure
     return { users: [], tasks: [], comments: [], userRoles: [], taskProposals: [], taskCategories: [] };
   }
 }
@@ -122,9 +120,8 @@ export async function getTaskById(id: string): Promise<Task | undefined> {
 
 export async function addTask(task: Task): Promise<void> {
   const data = await readData();
-  // Remove categoryName before saving if it was added for display
   const { categoryName, ...taskToSave } = task;
-  data.tasks.push(taskToSave as Task); // Cast because categoryName is removed
+  data.tasks.push(taskToSave as Task);
   await writeData(data);
 }
 
@@ -132,13 +129,28 @@ export async function updateTask(updatedTask: Task): Promise<void> {
   const data = await readData();
   const taskIndex = data.tasks.findIndex(task => task.id === updatedTask.id);
   if (taskIndex !== -1) {
-    // Remove categoryName before saving if it was added for display
     const { categoryName, ...taskToSave } = updatedTask;
     data.tasks[taskIndex] = taskToSave as Task;
     await writeData(data);
   } else {
     throw new Error('Task not found for update.');
   }
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const data = await readData();
+  const initialLength = data.tasks.length;
+  data.tasks = data.tasks.filter(task => task.id !== taskId);
+  if (data.tasks.length === initialLength) {
+    throw new Error('Task not found for deletion.');
+  }
+  // Optionally, delete related comments and proposals
+  data.comments = data.comments.filter(comment => comment.taskId !== taskId);
+  data.taskProposals = data.taskProposals.filter(proposal => proposal.taskId !== taskId);
+  // Optionally, delete associated files in public/uploads/taskId
+  // This is complex and requires careful implementation to avoid deleting unrelated files.
+  // For now, we'll leave the files.
+  await writeData(data);
 }
 
 
@@ -167,10 +179,9 @@ export async function getTaskProposalById(proposalId: string): Promise<TaskPropo
 
 export async function addTaskProposal(proposal: TaskProposal): Promise<void> {
   const data = await readData();
-  // Ensure no duplicate proposal from the same executor for the same task
   const existingProposalIndex = data.taskProposals.findIndex(p => p.taskId === proposal.taskId && p.executorId === proposal.executorId);
   if (existingProposalIndex !== -1) {
-    data.taskProposals[existingProposalIndex] = proposal; // Update if exists
+    data.taskProposals[existingProposalIndex] = proposal; 
   } else {
     data.taskProposals.push(proposal);
   }
@@ -224,12 +235,14 @@ export async function saveFile(file: File, taskId: string, subfolder?: 'task' | 
   } else if (subfolder?.startsWith('comments/')) {
      relativePath = `${relativePath}/${subfolder}/${sanitizedFileName}`;
   } else {
-     relativePath = `${relativePath}/${sanitizedFileName}`; // Default to task root if no subfolder specified
+     relativePath = `${relativePath}/${sanitizedFileName}`; 
   }
   
   const destinationDir = await ensureUploadsDirectoryExists(taskId, subfolder?.startsWith('comments/') ? subfolder.split('/')[1] : undefined);
   const filePath = path.join(destinationDir, sanitizedFileName);
   
   await fs.writeFile(filePath, buffer);
-  return `/${relativePath}`; // Return public path
+  return `/${relativePath}`; 
 }
+
+```
