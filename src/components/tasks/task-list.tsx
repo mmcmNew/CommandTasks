@@ -1,4 +1,6 @@
 
+'use client'; // Add this directive
+
 import type { Task, User, TaskCategory } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
