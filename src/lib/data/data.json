@@ -1,18 +1,4 @@
 {
-  "userRoles": [
-    {
-      "id": "3f8a7b3b-f71d-475d-8e1a-4c2e5b9c0d8a",
-      "name": "заказчик"
-    },
-    {
-      "id": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l",
-      "name": "исполнитель"
-    },
-    {
-      "id": "a1b2c3d4-e5f6-7890-1234-abcdef123456",
-      "name": "администратор"
-    }
-  ],
   "users": [
     {
       "id": "b6d9ac43-00bf-4e60-ae04-980f64074735",
@@ -42,14 +28,6 @@
       "passwordHash": "$2a$10$1xnMhRnIjFNUHZx4GYwX.u005mUGKdvH.Np2lJbA3aYy/0qZPbJma",
       "roleId": "a1b2c3d4-e5f6-7890-1234-abcdef123456"
     }
-  ],
-  "taskCategories": [
-    { "id": "cat-dev", "name": "Разработка" },
-    { "id": "cat-design", "name": "Дизайн" },
-    { "id": "cat-marketing", "name": "Маркетинг" },
-    { "id": "cat-docs", "name": "Документация" },
-    { "id": "cat-research", "name": "Исследование" },
-    { "id": "cat-other", "name": "Прочее" }
   ],
   "tasks": [
     {
@@ -98,20 +76,6 @@
       "authorId": "b6d9ac43-00bf-4e60-ae04-980f64074735",
       "createdAt": "2025-05-09T03:09:50.530Z",
       "categoryId": "cat-research",
-      "attachments": []
-    },
-    {
-      "id": "de96ad35-d1b2-45c8-b2e2-dfad213cf685",
-      "title": "dfsgasdfg",
-      "description": "dfasdfasdfasdfasdf",
-      "status": "Новая",
-      "dueDate": null,
-      "cost": null,
-      "customerId": "01010101-0101-0101-0101-010101010101",
-      "executorId": null,
-      "authorId": "01010101-0101-0101-0101-010101010101",
-      "createdAt": "2025-05-09T03:12:19.691Z",
-      "categoryId": "cat-other",
       "attachments": []
     },
     {
@@ -473,7 +437,7 @@
       "timestamp": "2025-05-09T03:03:10.342Z",
       "isSystemMessage": true
     },
-     {
+    {
       "id": "a24cda07-a747-4da4-867e-c19cd7b4f4ea",
       "taskId": "49f6891a-623e-4865-9a7f-8cbac1837034",
       "authorId": "d69fe064-f440-42e0-9db8-29ebfb9853b8",
@@ -627,6 +591,20 @@
       "isSystemMessage": true
     }
   ],
+  "userRoles": [
+    {
+      "id": "3f8a7b3b-f71d-475d-8e1a-4c2e5b9c0d8a",
+      "name": "заказчик"
+    },
+    {
+      "id": "c9e0f8d4-1b3c-4a2e-9d5f-8g7h6i5j4k3l",
+      "name": "исполнитель"
+    },
+    {
+      "id": "a1b2c3d4-e5f6-7890-1234-abcdef123456",
+      "name": "администратор"
+    }
+  ],
   "taskProposals": [
     {
       "id": "b36abeff-e454-4cbb-a26a-8aab68d67959",
@@ -635,6 +613,32 @@
       "proposedCost": 100,
       "proposedDueDate": "2025-05-09T19:00:00.000Z",
       "timestamp": "2025-05-09T03:07:42.954Z"
+    }
+  ],
+  "taskCategories": [
+    {
+      "id": "cat-dev",
+      "name": "Разработка"
+    },
+    {
+      "id": "cat-design",
+      "name": "Дизайн"
+    },
+    {
+      "id": "cat-marketing",
+      "name": "Маркетинг"
+    },
+    {
+      "id": "cat-docs",
+      "name": "Документация"
+    },
+    {
+      "id": "cat-research",
+      "name": "Исследование"
+    },
+    {
+      "id": "cat-other",
+      "name": "Прочее"
     }
   ]
 }

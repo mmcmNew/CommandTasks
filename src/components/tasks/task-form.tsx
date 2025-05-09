@@ -70,7 +70,7 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
   });
   
   useEffect(() => {
-    if (task && isEditMode) {
+    if (isEditMode && task) {
       form.reset({
         title: task.title || '',
         description: task.description || '',
@@ -79,21 +79,21 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         cost: task.cost || null,
         customerId: task.customerId || '',
         executorId: task.executorId || null,
-        categoryId: task.categoryId === undefined ? null : task.categoryId, // Ensure null if undefined
-        attachments: [], // Attachments are handled via FormData, not pre-filled here for editing
+        categoryId: (task.categoryId === undefined || task.categoryId === "") ? null : task.categoryId,
+        attachments: [], 
       });
     } else if (!isEditMode) {
-        form.reset({
-            title: '',
-            description: '',
-            status: TASK_STATUSES[0],
-            dueDate: null,
-            cost: null,
-            customerId: currentUser?.id || '',
-            executorId: null,
-            categoryId: defaultCategoryId,
-            attachments: [],
-        })
+      form.reset({
+          title: '',
+          description: '',
+          status: TASK_STATUSES[0],
+          dueDate: null,
+          cost: null,
+          customerId: currentUser?.id || '',
+          executorId: null,
+          categoryId: defaultCategoryId,
+          attachments: [],
+      });
     }
   }, [task, isEditMode, form, currentUser, defaultCategoryId]);
 
@@ -114,23 +114,9 @@ export default function TaskForm({ task, users, potentialCustomers, potentialExe
         formData.append(key, value.toISOString());
       } else if (value !== null && value !== undefined) {
         formData.append(key, String(value));
-      } else if (key === 'categoryId' && value === null) {
-        // Ensure null categoryId is handled explicitly if needed by backend, or omit if empty string is preferred
-        // For now, String(value) would be "null", which might be undesirable.
-        // If backend expects null for no category, this is fine.
-        // If backend expects omission or empty string, adjust here.
-        // Based on schema, it's optional and can be null.
-        // Let's ensure an actual null doesn't become "null" string.
-        // The current logic `value !== null && value !== undefined` correctly omits nulls from FormData.
       }
     });
 
-    // If categoryId is null, we might not want to append it or append an empty string
-    // depending on backend. Current logic omits it if value is null.
-    // If schema has `categoryId: z.string().nullable().optional()`,
-    // and server expects null, then data.categoryId will be null.
-    // `formData.append('categoryId', null)` might not be what you want.
-    // The current Object.entries loop correctly skips appending null values.
 
     try {
       let result;

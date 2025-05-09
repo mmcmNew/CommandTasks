@@ -31,6 +31,11 @@ export async function createTaskAction(formData: FormData, authorId: string) {
     return { error: 'Unauthorized. Author ID is missing.' };
   }
 
+  const categoryIdFromForm = formData.get('categoryId') as string | null;
+  const finalCategoryId = (categoryIdFromForm === null || categoryIdFromForm === "" || categoryIdFromForm === "null")
+                            ? null
+                            : categoryIdFromForm;
+
   const rawFormData = {
     title: formData.get('title') as string,
     description: formData.get('description') as string,
@@ -39,17 +44,12 @@ export async function createTaskAction(formData: FormData, authorId: string) {
     cost: formData.get('cost') ? parseFloat(formData.get('cost') as string) : null,
     customerId: formData.get('customerId') as string,
     executorId: formData.get('executorId') ? formData.get('executorId') as string : null,
-    categoryId: formData.get('categoryId') as string | null, 
+    categoryId: finalCategoryId, 
     attachments: formData.getAll('attachments') as File[],
   };
   
   rawFormData.attachments = rawFormData.attachments.filter(file => file.size > 0);
   
-  if (rawFormData.categoryId === "null" || rawFormData.categoryId === "") {
-    rawFormData.categoryId = null;
-  }
-
-
   const validatedFields = TaskSchema.safeParse(rawFormData);
 
   if (!validatedFields.success) {
@@ -117,6 +117,11 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
     return { error: 'Task not found.' };
   }
 
+  const categoryIdFromForm = formData.get('categoryId') as string | null;
+  const finalCategoryId = (categoryIdFromForm === null || categoryIdFromForm === "" || categoryIdFromForm === "null" || categoryIdFromForm === "none") // "none" might come from executorId logic, good to be safe
+                            ? null
+                            : categoryIdFromForm;
+
   const rawFormData = {
     title: formData.get('title') as string,
     description: formData.get('description') as string,
@@ -125,7 +130,7 @@ export async function updateTaskAction(taskId: string, formData: FormData, curre
     cost: formData.get('cost') ? parseFloat(formData.get('cost') as string) : null,
     customerId: formData.get('customerId') as string,
     executorId: formData.get('executorId') === 'none' || !formData.get('executorId') ? null : formData.get('executorId') as string,
-    categoryId: formData.get('categoryId') === 'null' || !formData.get('categoryId') ? null : formData.get('categoryId') as string,
+    categoryId: finalCategoryId,
     attachments: formData.getAll('attachments') as File[],
   };
 
@@ -626,3 +631,4 @@ export async function getCompletedTasksAction() {
     return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
+

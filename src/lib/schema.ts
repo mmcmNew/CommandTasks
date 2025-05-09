@@ -40,7 +40,7 @@ export const TaskSchema = z.object({
   cost: z.coerce.number().positive({ message: "Cost must be a positive number." }).nullable().optional(),
   customerId: z.string().uuid({ message: "Invalid customer ID." }),
   executorId: z.string().uuid({ message: "Invalid executor ID." }).nullable().optional(),
-  categoryId: z.string().uuid({ message: "Invalid category ID."}).nullable().optional(),
+  categoryId: z.string().min(1, {message: "Category ID cannot be empty if provided."}).nullable().optional(), // Changed from .uuid()
   attachments: fileListSchema,
 });
 
@@ -67,3 +67,4 @@ export const TaskProposalSchema = z.object({
 });
 
 export type TaskProposalFormData = z.infer<typeof TaskProposalSchema>;
+
