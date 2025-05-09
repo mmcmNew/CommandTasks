@@ -406,10 +406,10 @@ export default function TaskDetailPage() {
                   onClick={handleAcceptRework}
                   disabled={isAnyActionPending}
                   className="shadow-md bg-green-500 hover:bg-green-600 text-white"
-                  title="Принять информацию от заказчика и продолжить работу"
+                  title="Принять доработку от заказчика и продолжить работу"
                 >
                   {isAcceptingRework ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CornerRightUp className="mr-2 h-4 w-4" />}
-                  Принять информацию заказчика
+                  Принять доработку заказчика
                 </Button>
               )}
 
@@ -462,6 +462,7 @@ export default function TaskDetailPage() {
     </div>
   );
 }
+
 
 
 
