@@ -626,5 +626,3 @@ export async function getCompletedTasksAction() {
     return { success: false, error: "Failed to load completed tasks.", tasks: [], users: [] };
   }
 }
-
-```
